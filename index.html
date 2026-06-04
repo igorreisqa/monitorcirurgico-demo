@@ -7,8 +7,9 @@
     <!-- Firebase SDK -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-      import { getFirestore, collection, onSnapshot, addDoc, setDoc, deleteDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-      import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+      import { getFirestore, collection, onSnapshot, addDoc, setDoc, deleteDoc, doc, getDocs, getDoc, query, where, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+      import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+      import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
       const configCBA = {
         apiKey: "AIzaSyCiPvYsGevYicQejvTsiC1j-64ziG2if58",
@@ -42,6 +43,12 @@
       dbCBA = getFirestore(appCBA);
       const appCGR = initializeApp(configCGR, "cgr");
       dbCGR = getFirestore(appCGR);
+
+      enableIndexedDbPersistence(dbCBA).catch(() => {});
+      enableIndexedDbPersistence(dbCGR).catch(() => {});
+
+      const storageCBA = getStorage(appCBA);
+      const storageCGR = getStorage(appCGR);
 
       const auth    = getAuth(appCGR);
       const authCBA = getAuth(appCBA);
@@ -112,7 +119,7 @@
         }
       });
 
-      window._fbModules = { collection, onSnapshot, addDoc, setDoc, deleteDoc, doc, getDocs };
+      window._fbModules = { collection, onSnapshot, addDoc, setDoc, deleteDoc, doc, getDocs, getDoc, query, where };
       window._fbDbCBA   = dbCBA;
       window._fbDbCGR   = dbCGR;
       window._fbCollCBA = "procedimentos_cba";
@@ -126,6 +133,43 @@
       window.getDbParaFilial = function(filial) {
         if (filial === 'cgr') return { db: dbCGR, coll: window._fbCollCGR };
         return { db: dbCBA, coll: window._fbCollCBA };
+      };
+
+      window.getStorageParaFilial = function(filial) {
+        if (filial === 'cgr') return storageCGR;
+        return storageCBA;
+      };
+
+      window._notifStatusCBA = {};
+      window._notifStatusCGR = {};
+
+      window.solicitarPermissaoNotificacoes = async function() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+      };
+
+      window.notificarMudancaStatus = function(proc, filial) {
+        if (Notification.permission !== 'granted') return;
+        const tracker = filial === 'cgr' ? window._notifStatusCGR : window._notifStatusCBA;
+        const id = proc.id;
+        const novoStatus = proc.status;
+        if (!id || !novoStatus) return;
+        if (tracker[id] && tracker[id] !== novoStatus) {
+          const labels = {
+            agendado: 'Agendado', preparacao: 'Em Separação',
+            enviado: 'Enviado', realizado: 'Realizado', cancelado: 'Cancelado'
+          };
+          const hospital = proc.hospital || proc.nomeHospital || '';
+          const tag = `${filial.toUpperCase()} - ${hospital}`.trim();
+          new Notification('GF Medical — Status atualizado', {
+            body: `[${filial.toUpperCase()}] ${proc.nomePaciente || proc.paciente || id}: ${labels[tracker[id]] || tracker[id]} → ${labels[novoStatus] || novoStatus}`,
+            tag: tag,
+            icon: '/gfmedical/icon.svg'
+          });
+        }
+        tracker[id] = novoStatus;
       };
 
       function autoAtualizarStatusAgendados(lista) {
@@ -195,7 +239,11 @@
           snap(
             col(dbCBA, "procedimentos_cba"),
             (snapshot) => {
-              window._dadosCBA = snapshot.docs.map(d => ({ _docId: d.id, ...d.data(), _filial: 'cba' }));
+              const novos = snapshot.docs.map(d => ({ _docId: d.id, ...d.data(), _filial: 'cba' }));
+              if (window._notifStatusCBA && typeof window.notificarMudancaStatus === 'function') {
+                novos.forEach(p => window.notificarMudancaStatus({ ...p, id: p._docId }, 'cba'));
+              }
+              window._dadosCBA = novos;
               window._cbaCarregado = true;
               aplicarDados();
             },
@@ -213,7 +261,11 @@
           snap(
             col(dbCGR, "procedimentos_cg"),
             (snapshot) => {
-              window._dadosCGR = snapshot.docs.map(d => ({ _docId: d.id, ...d.data(), _filial: 'cgr' }));
+              const novos = snapshot.docs.map(d => ({ _docId: d.id, ...d.data(), _filial: 'cgr' }));
+              if (window._notifStatusCGR && typeof window.notificarMudancaStatus === 'function') {
+                novos.forEach(p => window.notificarMudancaStatus({ ...p, id: p._docId }, 'cgr'));
+              }
+              window._dadosCGR = novos;
               window._cgrCarregado = true;
               aplicarDados();
             },
@@ -3297,6 +3349,7 @@
         // Inicia listeners do Firestore após login confirmado
         if (window._iniciarListeners) window._iniciarListeners();
         else { const t = setInterval(() => { if (window._iniciarListeners) { clearInterval(t); window._iniciarListeners(); } }, 100); }
+        if (window.solicitarPermissaoNotificacoes) window.solicitarPermissaoNotificacoes();
       }
       _authCGR.onAuthStateChanged(u => { if (u) _onLogin(); });
       _authCBA.onAuthStateChanged(u => { if (u) _onLogin(); });
