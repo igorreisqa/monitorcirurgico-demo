@@ -521,8 +521,8 @@
         </div>
         <button class="btn-export" onclick="openExportModal()">⬇ Exportar Excel</button>
         <button onclick="exportarWhatsApp()" style="padding:8px 18px;border-radius:10px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;font-family:var(--mono);font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;cursor:pointer;">💬 Cobrar via WhatsApp</button>
-        <button class="btn-add" onclick="openModal()">+ Cirurgia</button>
-        <button class="btn-add" onclick="openModalVolumes()" style="background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;margin-left:6px;">✈️ Retirar Volumes Urgentes no Aeroporto e Transportadora</button>
+        <button id="btn-nova-cirurgia" class="btn-add" onclick="openModal()" style="display:none;"></button>
+        <button id="btn-nova-coleta" class="btn-add" onclick="openModalVolumes()" style="display:none;"></button>
     </div>
 
     
@@ -543,7 +543,10 @@
 
     <!-- TABLE VIEW -->
     <div id="table-view" style="display:block;">
-        <div class="table-wrap">
+        <div class="table-scroll-wrapper">
+            <button class="tbl-scroll-btn tbl-scroll-left" id="tblScrollLeft" onclick="tblScroll(-1)" aria-label="Rolar para esquerda">&#8592;</button>
+            <button class="tbl-scroll-btn tbl-scroll-right" id="tblScrollRight" onclick="tblScroll(1)" aria-label="Rolar para direita">&#8594;</button>
+        <div class="table-wrap" id="mainTableWrap">
             <table class="proc-table" id="procTable">
                 <thead></thead>
                 <tbody></tbody>
@@ -553,6 +556,7 @@
                 <span class="table-footer-sync"><div class="table-footer-dot"></div>Atualização automática · CBA + CGR</span>
             </div>
         </div>
+        </div><!-- /table-scroll-wrapper -->
     </div>
     </div>
 
@@ -4329,6 +4333,61 @@ document.getElementById('f-data').addEventListener('change', function() {
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
 });
+
+// ─── DRAG TO SCROLL + BOTÕES — Central Cirúrgica ───
+(function() {
+    var wrap = document.getElementById('mainTableWrap');
+    if (!wrap) return;
+
+    var btnL = document.getElementById('tblScrollLeft');
+    var btnR = document.getElementById('tblScrollRight');
+    var STEP = 280;
+
+    function updateBtns() {
+        if (!btnL || !btnR) return;
+        var atLeft  = wrap.scrollLeft <= 2;
+        var atRight = wrap.scrollLeft >= wrap.scrollWidth - wrap.clientWidth - 2;
+        btnL.classList.toggle('visible', !atLeft);
+        btnR.classList.toggle('visible', !atRight);
+    }
+
+    wrap.addEventListener('scroll', updateBtns, { passive: true });
+    setTimeout(updateBtns, 800);
+
+    window.tblScroll = function(dir) {
+        wrap.scrollBy({ left: dir * STEP, behavior: 'smooth' });
+        setTimeout(updateBtns, 350);
+    };
+
+    var isDown = false, moved = false, startX = 0, startScrollLeft = 0;
+    wrap.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('button,a,input,select,.btn-act')) return;
+        isDown = true;
+        moved = false;
+        startX = e.clientX;
+        startScrollLeft = wrap.scrollLeft;
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!isDown) return;
+        var dx = startX - e.clientX;
+        if (Math.abs(dx) > 4) {
+            moved = true;
+            wrap.classList.add('is-dragging');
+            wrap.scrollLeft = startScrollLeft + dx;
+        }
+    });
+    document.addEventListener('mouseup', function() {
+        if (!isDown) return;
+        isDown = false;
+        wrap.classList.remove('is-dragging');
+        updateBtns();
+    });
+    wrap.addEventListener('click', function(e) {
+        if (moved) { e.stopPropagation(); moved = false; }
+    }, true);
+})();
 
 // ─── EXPORT ───
 function openExportModal() {
@@ -8837,6 +8896,17 @@ window.fecharChecklist = fecharChecklist;
 </datalist>
 
 
+</div>
+
+<div class="fab-group">
+    <button class="fab-btn fab-coleta" onclick="openModalVolumes()" aria-label="Nova coleta prioritária">
+        <span class="fab-btn-label">Coleta Prioritária</span>
+        ✈
+    </button>
+    <button class="fab-btn fab-cirurgia" onclick="openModal()" aria-label="Nova cirurgia">
+        <span class="fab-btn-label">Nova Cirurgia</span>
+        +
+    </button>
 </div>
 
 <script>
