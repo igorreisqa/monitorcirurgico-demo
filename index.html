@@ -7,7 +7,10 @@
       var p = new URLSearchParams(location.search);
       var f = p.get('filial');
       if (f === 'cgr' || f === 'cba' || f === 'consolidado') localStorage.setItem('gf_branch', f);
-      if (p.get('demo') === '1') document.documentElement.classList.add('modo-demo');
+      // Domínio dedicado de demonstração: entra em modo demo sempre, sem
+      // precisar de ?demo=1 na URL.
+      var _hostForcaDemo = location.hostname === 'monitorcirurgico-demo.vercel.app';
+      if (p.get('demo') === '1' || _hostForcaDemo) document.documentElement.classList.add('modo-demo');
       var saved = localStorage.getItem('gf_branch');
       if (saved !== 'cgr' && saved !== 'cba' && saved !== 'consolidado') document.documentElement.classList.add('gf-need-branch-picker');
       window._escolherFilial = function(code) {
@@ -100,7 +103,7 @@
       // voltava sozinha em visitas normais (sem o parâmetro), já que agora
       // produção e demo rodam no mesmo endereço (antes o demo ficava isolado
       // num domínio à parte, então isso nunca vazava).
-      const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1';
+      const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app';
       function _criarClienteFilial(code) {
         const cfg = BRANCHES[code];
         return createClient(cfg.url, cfg.key, {
@@ -851,7 +854,7 @@
 
       window.addEventListener('DOMContentLoaded', () => {
         aplicarBrandingFilial();
-        if (new URLSearchParams(location.search).get('demo') === '1') {
+        if (new URLSearchParams(location.search).get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app') {
           window.entrarDemo();
         }
       });
