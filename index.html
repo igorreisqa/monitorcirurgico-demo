@@ -8600,7 +8600,16 @@ function editProc(docId) {
     }
 }
 
-const NOMES_OPERADOR_CG = ['Beatriz Helena Calil Barbosa','Cristina Luzia','Eva Diana de Araujo','Gabriely Amorim Dias','Gustavo Ovídio Mussi Faverão','Igor dos Reis Silva','Izabela Crozetta','Jeferson Rodrigues Cruz','Kauana da Silva Feitoza','Larissa Amanda Bernardo do Valle','Luis Felipe Moura Braga','Marcella Fernandes Ricci','Marcio Benedito Queiroz','Marcos Gonçalves da Silva','Murilo Julio Sant Ana Pereira','Paulo Vitor Leite da Silva','Regiane da Silva Ramos','Renata Franco de Lima','Roberto Alex Cândido','Starley Santos Silva','Thayz Benites Leonel','Tiago da Silva Siqueira','Wilson Cordeiro'];
+// Cada filial tem sua própria lista de operadores — quem aparece pra
+// escolher em "Quem está operando agora?" muda conforme a unidade ativa.
+const NOMES_OPERADOR_CBA = ['Beatriz Helena Calil Barbosa','Cristina Luzia','Izabela Crozetta','Kauana da Silva Feitoza','Murilo Julio Sant Ana Pereira','Renata Franco de Lima','Starley Santos Silva','Wilson Cordeiro','Roberto Alex Cândido','Marcio Benedito Queiroz'];
+const NOMES_OPERADOR_CGR = ['Eva Diana de Araujo','Igor dos Reis Silva','Larissa Amanda Bernardo do Valle','Gabriely Amorim Dias','Luis Felipe Moura Braga','Paulo Vitor Leite da Silva','Thayz Benites Leonel','Tiago da Silva Siqueira','Jeferson Rodrigues Cruz','Marcella Fernandes Ricci','Marcos Gonçalves da Silva','Regiane da Silva Ramos','Gustavo Ovídio Mussi Faverão'];
+// No Consolidado mostra as duas listas juntas (cobre as duas cidades).
+function _nomesOperadorAtivos() {
+    if (window._gfMode === 'cba') return NOMES_OPERADOR_CBA;
+    if (window._gfMode === 'cgr') return NOMES_OPERADOR_CGR;
+    return [...NOMES_OPERADOR_CGR, ...NOMES_OPERADOR_CBA];
+}
 // Equipe interna (comercial/estoque) identificada por nome — tem acesso
 // completo (painel admin) ao se identificar. Os demais nomes da lista são
 // vendedores de campo e caem na visão restrita (só "Adicionar Cirurgia").
@@ -8620,7 +8629,7 @@ window.pedirIdentificacaoComercial = function() {
         const overlay = document.getElementById('identComercialOverlay');
         const lista = document.getElementById('identComercialNomes');
         if (!overlay || !lista) { resolve(null); return; }
-        lista.innerHTML = NOMES_OPERADOR_CG.map(nome => {
+        lista.innerHTML = _nomesOperadorAtivos().map(nome => {
             const label = nome;
             return `<button type="button" class="login-btn" style="margin-top:0;text-transform:none;font-size:0.95rem;" onclick="window._resolverIdentComercial('${nome}')">${label}</button>`;
         }).join('');
@@ -8660,7 +8669,7 @@ function openModal() {
     if (_precisaNomeOp()) {
         _pendingOpenModal = _doOpenModal;
         const lista = document.getElementById('listaNomeOperador');
-        lista.innerHTML = NOMES_OPERADOR_CG.map(nome => {
+        lista.innerHTML = _nomesOperadorAtivos().map(nome => {
             const sel = nome === window._operadorNome;
             const label = nome;
             return `<button type="button" onclick="selecionarNomeOp('${nome}')" style="padding:10px 14px;border-radius:8px;background:${sel?'rgba(75,180,210,0.12)':'var(--bg3)'};border:1.5px solid ${sel?'var(--accent)':'var(--border)'};color:var(--text);cursor:pointer;font-family:var(--mono);font-size:0.88rem;font-weight:600;text-align:left;transition:all .13s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${sel?'var(--accent)':'var(--border)'}'">${sel?'✓ ':''}${label}</button>`;
@@ -20284,6 +20293,29 @@ function injetarBotaoDarkMode() {
     document.documentElement.setAttribute('data-theme', saved);
 }
 
+// ─── 1b. TROCAR UNIDADE (Consolidado/CGR/CBA) DIRETO DO CABEÇALHO ──
+function injetarBotaoFilial() {
+    if (document.getElementById('filial-switcher-group')) return;
+    const headerRight = document.querySelector('.header > div[style*="display:flex"]');
+    if (!headerRight) return;
+    const grupo = document.createElement('div');
+    grupo.id = 'filial-switcher-group';
+    grupo.style.cssText = 'display:flex;align-items:center;gap:4px;';
+    const opcoes = [
+        { code: 'consolidado', label: 'Consolidado' },
+        { code: 'cgr', label: 'CGR' },
+        { code: 'cba', label: 'CBA' },
+    ];
+    const modoAtual = window._gfMode;
+    grupo.innerHTML = opcoes.map(o => {
+        const ativo = modoAtual === o.code;
+        return `<button type="button" ${ativo ? 'disabled' : `onclick="window._escolherFilial('${o.code}')"`}
+            title="${ativo ? 'Unidade atual' : 'Trocar para ' + o.label}"
+            style="padding:7px 12px;border-radius:10px;font-family:var(--mono);font-size:0.72rem;font-weight:700;letter-spacing:0.06em;cursor:${ativo ? 'default' : 'pointer'};transition:all 0.2s;background:${ativo ? '#4db87a' : 'rgba(255,255,255,0.12)'};border:1px solid ${ativo ? '#3da868' : 'rgba(255,255,255,0.25)'};color:${ativo ? '#fff' : 'var(--text)'};">${o.label}</button>`;
+    }).join('');
+    headerRight.insertBefore(grupo, headerRight.firstChild);
+}
+
 // ─── 2. FAIXA ALERTA CIRURGIA PRÓXIMA ────────────────────────────
 function injetarBarraCirurgiaProxima() {
     if (document.getElementById('cirurgia-proxima-bar')) return;
@@ -20431,6 +20463,7 @@ window.updateStats = function() {
 // ─── INIT ─────────────────────────────────────────────────────────
 function init() {
     injetarBotaoDarkMode();
+    injetarBotaoFilial();
     injetarBarraCirurgiaProxima();
     injetarBotaoCSV();
 }
