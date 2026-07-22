@@ -385,9 +385,10 @@
             // travar (sem escrever nada) qualquer tentativa de mexer num
             // registro de Cuiabá até essa sessão autenticar lá também.
             try {
-              const { error: errCba } = await window._gfConnections.cba.auth.signInWithPassword({ email, password: pass });
+              const { data: dataCba, error: errCba } = await window._gfConnections.cba.auth.signInWithPassword({ email, password: pass });
               window._consolidadoCbaOk = !errCba;
               if (errCba) console.warn('[Consolidado] Não autenticou em Cuiabá:', errCba.message);
+              else if (dataCba?.user) await _sincronizarPerfilFilial('cba', dataCba.user);
             } catch (e2) {
               window._consolidadoCbaOk = false;
               console.warn('[Consolidado] Não autenticou em Cuiabá:', e2.message);
@@ -542,13 +543,35 @@
         if (m) m.style.display = 'none';
       };
 
+      const ADMIN_EMAILS_FIXOS = ['comercial@gfmedical.net', 'comercialmt@gfmedical.net'];
+
+      // Garante que exista uma linha em 'usuarios' pro usuário logado NA
+      // FILIAL INDICADA (não só na principal) — necessário no Consolidado,
+      // já que a autenticação na conexão secundária (Cuiabá) não passa pelo
+      // aplicarAuth() de baixo, que só mexe na conexão principal.
+      async function _sincronizarPerfilFilial(code, user) {
+        const conn = window._gfConnections[code];
+        if (!conn || !user) return;
+        const emailLower = (user.email || '').toLowerCase();
+        const isAdminFixo = ADMIN_EMAILS_FIXOS.includes(emailLower);
+        const { doc: docFn2, getDoc: gd2, setDoc: sd2 } = conn.fbModules;
+        try {
+          if (isAdminFixo) {
+            await sd2(docFn2(conn.db, 'usuarios', user.id), { email: emailLower, nome: user.email, role: 'admin' });
+          } else {
+            const snap = await gd2(docFn2(conn.db, 'usuarios', user.id));
+            if (!snap.exists()) {
+              await sd2(docFn2(conn.db, 'usuarios', user.id), { email: emailLower, nome: user.email, role: 'agendador' });
+            }
+          }
+        } catch (e) { console.warn('[Consolidado] Falha ao sincronizar perfil em ' + code + ':', e.message); }
+      }
+
       auth.onAuthStateChange((_event, session) => {
         const user = session?.user ?? null;
         async function aplicarAuth() {
           const overlay = document.getElementById('loginOverlay');
           if (!overlay) { setTimeout(aplicarAuth, 50); return; }
-
-          const ADMIN_EMAILS_FIXOS = ['comercial@gfmedical.net', 'comercialmt@gfmedical.net'];
 
           if (user) {
             const emailLower = (user.email || '').toLowerCase();
@@ -848,7 +871,10 @@
       // volta já logada) quanto login novo feito dentro do doLogin().
       if (IS_CONSOLIDADO && window._gfConnections.cba) {
         window._gfConnections.cba.auth.onAuthStateChange((_event, session) => {
-          if (session) window._iniciarAssinaturaFilial('cba');
+          if (session) {
+            window._iniciarAssinaturaFilial('cba');
+            _sincronizarPerfilFilial('cba', session.user);
+          }
         });
       }
 
