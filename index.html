@@ -7162,8 +7162,29 @@ async function _abrirWhatsApp(texto) {
 // agora atende as duas cidades a partir do mesmo código, então vale garantir
 // que quem está cobrando não esqueceu de qual unidade está o dado na tela.
 function confirmarFilialAntesDeCobrar() {
+    if (window._gfMode === 'consolidado') {
+        return confirm('Você está no modo Consolidado (Campo Grande + Cuiabá).\n\nA mensagem vai separar os itens por cidade, com um cabeçalho pra cada uma. Confirma o envio?');
+    }
     const nome = (window._branchConfig && window._branchConfig.label) || window._activeBranch || '—';
     return confirm('Você está prestes a cobrar via WhatsApp pela unidade: ' + nome + '.\n\nConfirma que é a filial certa antes de enviar?');
+}
+
+// Agrupa uma lista de procedimentos por filial de origem — só entra em ação
+// no modo Consolidado (fora dele não existe mistura de cidade, então devolve
+// tudo num grupo só, sem cabeçalho, mantendo o comportamento de sempre).
+function _agruparPorFilialWhatsApp(lista) {
+    if (window._gfMode !== 'consolidado') return [{ label: null, itens: lista }];
+    var nomes = { cgr: 'CAMPO GRANDE', cba: 'CUIABÁ' };
+    var grupos = { cgr: [], cba: [], outro: [] };
+    lista.forEach(function(p) {
+        var code = (p._filialOrigem === 'cgr' || p._filialOrigem === 'cba') ? p._filialOrigem : 'outro';
+        grupos[code].push(p);
+    });
+    var resultado = [];
+    ['cgr', 'cba', 'outro'].forEach(function(code) {
+        if (grupos[code].length) resultado.push({ label: code === 'outro' ? null : nomes[code], itens: grupos[code] });
+    });
+    return resultado;
 }
 
 async function exportarWhatsApp() {
@@ -7186,14 +7207,17 @@ async function exportarWhatsApp() {
     var linhas = [];
     linhas.push('Olá! 😊');
     linhas.push('Segue as pendências de *Monitor Cirúrgico* que ainda não foram devolvidos ao estoque:');
-    cirurgias.forEach(function(p) {
-        linhas.push('');
-        linhas.push('---');
-        linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
-        linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
-        linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
-        linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
-        linhas.push('📅 *Data de retirada:* ' + fmt(p.retirada));
+    _agruparPorFilialWhatsApp(cirurgias).forEach(function(grupo) {
+        if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
+        grupo.itens.forEach(function(p) {
+            linhas.push('');
+            linhas.push('---');
+            linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
+            linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
+            linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
+            linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
+            linhas.push('📅 *Data de retirada:* ' + fmt(p.retirada));
+        });
     });
     linhas.push('');
     linhas.push('---');
@@ -10350,18 +10374,23 @@ function cobrarVolumesWhatsApp() {
     linhas.push('📅 Gerado em: ' + new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     linhas.push('━━━━━━━━━━━━━━━━━━━━━━');
 
-    coletas.forEach((p, i) => {
-        const retData = p.retirada || p.dataRetirar || '';
-        linhas.push('');
-        linhas.push(`*${i+1}. ✈️ RETIRAR VOLUMES URGENTES*`);
-        if (retData) linhas.push(`📦 *Data de Retirada: ${fmt(retData)}${p.horaRetirar?' às '+p.horaRetirar:''}*`);
-        if (p.nfCompra) linhas.push(`🧾 NF de Compra: ${p.nfCompra}`);
-        if (p.cte) linhas.push(`📋 N° CTE: ${p.cte}`);
-        if (p.coletaFornecedor) linhas.push(`🏭 Fornecedor: ${p.coletaFornecedor}`);
-        if (p.coletaTransportadora) linhas.push(`🚚 Transportadora: ${p.coletaTransportadora}`);
-        if (p.coletaDataCirurgia) linhas.push(`📅 Data Cirurgia: ${fmt(p.coletaDataCirurgia)}${p.coletaHoraCirurgia?' às '+p.coletaHoraCirurgia:''}`);
-        if (p.vendedor) linhas.push(`👤 Vendedor: ${p.vendedor}`);
-        if (p.obs) linhas.push(`📝 Obs: ${p.obs}`);
+    let contadorVol = 0;
+    _agruparPorFilialWhatsApp(coletas).forEach(grupo => {
+        if (grupo.label) { linhas.push(''); linhas.push(`🏙️ *${grupo.label}*`); }
+        grupo.itens.forEach(p => {
+            contadorVol++;
+            const retData = p.retirada || p.dataRetirar || '';
+            linhas.push('');
+            linhas.push(`*${contadorVol}. ✈️ RETIRAR VOLUMES URGENTES*`);
+            if (retData) linhas.push(`📦 *Data de Retirada: ${fmt(retData)}${p.horaRetirar?' às '+p.horaRetirar:''}*`);
+            if (p.nfCompra) linhas.push(`🧾 NF de Compra: ${p.nfCompra}`);
+            if (p.cte) linhas.push(`📋 N° CTE: ${p.cte}`);
+            if (p.coletaFornecedor) linhas.push(`🏭 Fornecedor: ${p.coletaFornecedor}`);
+            if (p.coletaTransportadora) linhas.push(`🚚 Transportadora: ${p.coletaTransportadora}`);
+            if (p.coletaDataCirurgia) linhas.push(`📅 Data Cirurgia: ${fmt(p.coletaDataCirurgia)}${p.coletaHoraCirurgia?' às '+p.coletaHoraCirurgia:''}`);
+            if (p.vendedor) linhas.push(`👤 Vendedor: ${p.vendedor}`);
+            if (p.obs) linhas.push(`📝 Obs: ${p.obs}`);
+        });
     });
 
     linhas.push('');
@@ -10391,36 +10420,35 @@ function cobrarAgendadosWhatsApp() {
     const hojeArr = lista.filter(p => p.data === hoje);
     const amanhaArr = lista.filter(p => p.data === amanha);
 
+    const renderGrupoDia = (arr) => {
+        let contadorDia = 0;
+        _agruparPorFilialWhatsApp(arr).forEach(grupo => {
+            if (grupo.label) { linhas.push(''); linhas.push(`🏙️ *${grupo.label}*`); }
+            grupo.itens.forEach(p => {
+                contadorDia++;
+                linhas.push('');
+                const nomePac = (p.paciente && p.paciente.trim()) ? p.paciente.trim() : `${(p.hospital||'').replace(/^Hospital /i,'').substring(0,25)} — ${(p.medico||'').split(' ').slice(0,2).join(' ')}`;
+                linhas.push(`*${contadorDia}. ${nomePac}*`);
+                if (p.inicio) linhas.push(`⏰ Horário: ${p.inicio}`);
+                linhas.push(`🏥 Hospital: ${p.hospital||'—'}`);
+                linhas.push(`👨‍⚕️ Cirurgião: ${p.medico||'—'}`);
+                if (p.procedimento) linhas.push(`🔬 Procedimento: ${p.procedimento}`);
+                if (p.convenio && p.convenio !== '—') linhas.push(`🏦 Convênio: ${p.convenio}`);
+                if (p.vendedor) linhas.push(`👤 Vendedor: ${p.vendedor}`);
+            });
+        });
+    };
+
     if (hojeArr.length) {
         linhas.push('');
         linhas.push(`🏥 *HOJE — ${fmt(hoje)} (${hojeArr.length} cirurgia(s))*`);
-        hojeArr.forEach((p, i) => {
-            linhas.push('');
-            const nomePac = (p.paciente && p.paciente.trim()) ? p.paciente.trim() : `${(p.hospital||'').replace(/^Hospital /i,'').substring(0,25)} — ${(p.medico||'').split(' ').slice(0,2).join(' ')}`;
-            linhas.push(`*${i+1}. ${nomePac}*`);
-            if (p.inicio) linhas.push(`⏰ Horário: ${p.inicio}`);
-            linhas.push(`🏥 Hospital: ${p.hospital||'—'}`);
-            linhas.push(`👨‍⚕️ Cirurgião: ${p.medico||'—'}`);
-            if (p.procedimento) linhas.push(`🔬 Procedimento: ${p.procedimento}`);
-            if (p.convenio && p.convenio !== '—') linhas.push(`🏦 Convênio: ${p.convenio}`);
-            if (p.vendedor) linhas.push(`👤 Vendedor: ${p.vendedor}`);
-        });
+        renderGrupoDia(hojeArr);
     }
 
     if (amanhaArr.length) {
         linhas.push('');
         linhas.push(`🏥 *AMANHÃ — ${fmt(amanha)} (${amanhaArr.length} cirurgia(s))*`);
-        amanhaArr.forEach((p, i) => {
-            linhas.push('');
-            const nomePac = (p.paciente && p.paciente.trim()) ? p.paciente.trim() : `${(p.hospital||'').replace(/^Hospital /i,'').substring(0,25)} — ${(p.medico||'').split(' ').slice(0,2).join(' ')}`;
-            linhas.push(`*${i+1}. ${nomePac}*`);
-            if (p.inicio) linhas.push(`⏰ Horário: ${p.inicio}`);
-            linhas.push(`🏥 Hospital: ${p.hospital||'—'}`);
-            linhas.push(`👨‍⚕️ Cirurgião: ${p.medico||'—'}`);
-            if (p.procedimento) linhas.push(`🔬 Procedimento: ${p.procedimento}`);
-            if (p.convenio && p.convenio !== '—') linhas.push(`🏦 Convênio: ${p.convenio}`);
-            if (p.vendedor) linhas.push(`👤 Vendedor: ${p.vendedor}`);
-        });
+        renderGrupoDia(amanhaArr);
     }
 
     linhas.push('');
@@ -16879,16 +16907,21 @@ window.exportarWhatsAppColeta = function() {
         `_${new Date().toLocaleDateString('pt-BR')} · ${pendentes.length} pendente(s)_`,
         ''
     ];
-    pendentes.forEach((p, i) => {
-        const ret  = p.dataRetirar || p.retirada || '';
-        const venc = ret && ret < hoje ? ' ❌ VENCIDA' : (ret === hoje ? ' ⏰ HOJE' : '');
-        linhas.push(`*${i+1}. ${p.coletaFornecedor || '—'}*${venc}`);
-        if (p.cte)                linhas.push(`   📦 CTE: ${p.cte}`);
-        if (p.nfCompra)           linhas.push(`   🧾 NF Compra: ${p.nfCompra}`);
-        if (p.coletaTransportadora) linhas.push(`   🚚 Transportadora: ${p.coletaTransportadora}`);
-        if (ret)                  linhas.push(`   📅 Retirada: ${fmt(ret)}${p.horaRetirar?' às '+p.horaRetirar:''}`);
-        if (p.coletaDataCirurgia) linhas.push(`   🗓 Cirurgia: ${fmt(p.coletaDataCirurgia)}${p.coletaHoraCirurgia?' às '+p.coletaHoraCirurgia:''}`);
-        linhas.push('');
+    let contadorColeta = 0;
+    _agruparPorFilialWhatsApp(pendentes).forEach(grupo => {
+        if (grupo.label) { linhas.push(`🏙️ *${grupo.label}*`); linhas.push(''); }
+        grupo.itens.forEach(p => {
+            contadorColeta++;
+            const ret  = p.dataRetirar || p.retirada || '';
+            const venc = ret && ret < hoje ? ' ❌ VENCIDA' : (ret === hoje ? ' ⏰ HOJE' : '');
+            linhas.push(`*${contadorColeta}. ${p.coletaFornecedor || '—'}*${venc}`);
+            if (p.cte)                linhas.push(`   📦 CTE: ${p.cte}`);
+            if (p.nfCompra)           linhas.push(`   🧾 NF Compra: ${p.nfCompra}`);
+            if (p.coletaTransportadora) linhas.push(`   🚚 Transportadora: ${p.coletaTransportadora}`);
+            if (ret)                  linhas.push(`   📅 Retirada: ${fmt(ret)}${p.horaRetirar?' às '+p.horaRetirar:''}`);
+            if (p.coletaDataCirurgia) linhas.push(`   🗓 Cirurgia: ${fmt(p.coletaDataCirurgia)}${p.coletaHoraCirurgia?' às '+p.coletaHoraCirurgia:''}`);
+            linhas.push('');
+        });
     });
     linhas.push('_Enviado pelo Monitor Cirúrgico GF Medical_');
     _abrirWhatsApp(linhas.join('\n'));
