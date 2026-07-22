@@ -6,10 +6,10 @@
     (function(){
       var p = new URLSearchParams(location.search);
       var f = p.get('filial');
-      if (f === 'cgr' || f === 'cba') localStorage.setItem('gf_branch', f);
+      if (f === 'cgr' || f === 'cba' || f === 'consolidado') localStorage.setItem('gf_branch', f);
       if (p.get('demo') === '1') document.documentElement.classList.add('modo-demo');
       var saved = localStorage.getItem('gf_branch');
-      if (saved !== 'cgr' && saved !== 'cba') document.documentElement.classList.add('gf-need-branch-picker');
+      if (saved !== 'cgr' && saved !== 'cba' && saved !== 'consolidado') document.documentElement.classList.add('gf-need-branch-picker');
       window._escolherFilial = function(code) {
         localStorage.setItem('gf_branch', code);
         location.reload();
@@ -53,25 +53,37 @@
           label: "Cuiabá",
         },
       };
-      const ACTIVE_BRANCH_CODE = (localStorage.getItem('gf_branch') === 'cba') ? 'cba' : 'cgr';
+      const _savedBranch = localStorage.getItem('gf_branch');
+      const IS_CONSOLIDADO = _savedBranch === 'consolidado';
+      // Mesmo no modo Consolidado, mantemos uma filial "principal" — usada pro
+      // branding de fallback e como primeira tentativa de login/papel — mas as
+      // DUAS conexões ficam disponíveis (ver window._gfConnections abaixo).
+      const ACTIVE_BRANCH_CODE = (_savedBranch === 'cba') ? 'cba' : 'cgr';
       const BR = BRANCHES[ACTIVE_BRANCH_CODE];
       window._activeBranch = ACTIVE_BRANCH_CODE;
       window._branchConfig = BR;
-      const brKey = (name) => 'gf_' + ACTIVE_BRANCH_CODE + '_' + name;
+      window._gfMode = IS_CONSOLIDADO ? 'consolidado' : ACTIVE_BRANCH_CODE;
+      const brKey = (name) => 'gf_' + (IS_CONSOLIDADO ? 'consolidado' : ACTIVE_BRANCH_CODE) + '_' + name;
       window._brKey = brKey;
 
-      document.title = BR.pageTitle;
+      document.title = IS_CONSOLIDADO ? 'Monitor Cirúrgico · Consolidado · GF Medical' : BR.pageTitle;
       const _metaDesc = document.querySelector('meta[name="description"]');
-      if (_metaDesc) _metaDesc.setAttribute('content', BR.metaDescription);
+      if (_metaDesc) _metaDesc.setAttribute('content', IS_CONSOLIDADO ? 'Monitor Cirúrgico GF Medical — Campo Grande e Cuiabá, consolidado.' : BR.metaDescription);
 
       function aplicarBrandingFilial() {
-        document.querySelectorAll('.marca-gf-brand').forEach(el => { el.textContent = ' · ' + BR.cityLabel; });
+        const cidadeLabel = IS_CONSOLIDADO ? 'Consolidado (Campo Grande + Cuiabá)' : BR.cityLabel;
+        const labelCurto  = IS_CONSOLIDADO ? 'Consolidado' : BR.label;
+        document.querySelectorAll('.marca-gf-brand').forEach(el => { el.textContent = ' · ' + cidadeLabel; });
         const lbl = document.getElementById('filialAtualLabel');
-        if (lbl) lbl.textContent = BR.label;
+        if (lbl) lbl.textContent = labelCurto;
         const tblLbl = document.getElementById('tblFooterFilial');
-        if (tblLbl) tblLbl.textContent = BR.label;
+        if (tblLbl) tblLbl.textContent = labelCurto;
         const fCidade = document.getElementById('f-cidade');
-        if (fCidade) fCidade.value = BR.cityShort;
+        if (fCidade && !IS_CONSOLIDADO) fCidade.value = BR.cityShort;
+        const tabOpme = document.getElementById('tab-opme');
+        if (tabOpme && IS_CONSOLIDADO) tabOpme.title = 'No modo Consolidado, Fichas OPME mostra só Campo Grande — a área de fichas ainda não foi adaptada pras duas unidades.';
+        const gFilialConsolidado = document.getElementById('g-filial-consolidado');
+        if (gFilialConsolidado) gFilialConsolidado.style.display = IS_CONSOLIDADO ? '' : 'none';
       }
       window._trocarFilial = function() {
         localStorage.removeItem('gf_branch');
@@ -89,9 +101,23 @@
       // produção e demo rodam no mesmo endereço (antes o demo ficava isolado
       // num domínio à parte, então isso nunca vazava).
       const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1';
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { storageKey: (_isDemoUrl ? 'sb-demo-' : 'sb-') + ACTIVE_BRANCH_CODE + '-auth' }
-      });
+      function _criarClienteFilial(code) {
+        const cfg = BRANCHES[code];
+        return createClient(cfg.url, cfg.key, {
+          auth: { storageKey: (_isDemoUrl ? 'sb-demo-' : 'sb-') + code + '-auth' }
+        });
+      }
+
+      // No modo Consolidado os dois projetos Supabase ficam conectados ao
+      // mesmo tempo; fora dele, só o da filial ativa é criado — igual sempre
+      // foi. Cada projeto tem seu próprio createFirestoreShim porque o shim
+      // fecha o cliente Postgres real dentro de si (o parâmetro "_db" passado
+      // pra collection()/doc() é só decorativo) — não dá pra reaproveitar uma
+      // instância do shim pra "apontar" pro outro banco.
+      const supabaseCgr = (ACTIVE_BRANCH_CODE === 'cgr' || IS_CONSOLIDADO) ? _criarClienteFilial('cgr') : null;
+      const supabaseCba = (ACTIVE_BRANCH_CODE === 'cba' || IS_CONSOLIDADO) ? _criarClienteFilial('cba') : null;
+      const supabase = ACTIVE_BRANCH_CODE === 'cba' ? supabaseCba : supabaseCgr;
+
       const auth = supabase.auth;
       window._fbAuth = auth;
       window._supabase = supabase;
@@ -100,10 +126,30 @@
       const db = supabase;
       window._fbDb = db;
       window._fbColl = COLL;
-      window._fbModules = createFirestoreShim(supabase);
+      const fbModulesCgr = supabaseCgr ? createFirestoreShim(supabaseCgr) : null;
+      const fbModulesCba = supabaseCba ? createFirestoreShim(supabaseCba) : null;
+      window._fbModules = ACTIVE_BRANCH_CODE === 'cba' ? fbModulesCba : fbModulesCgr;
       const { collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, onSnapshot, query, orderBy } = window._fbModules;
       window._fbStorage = supabase.storage;
       window._fbStorageModules = createStorageShim(supabase, 'opme');
+
+      // Registro de conexões pra escrita segura no modo Consolidado. TODA
+      // escrita em procedimentos (criar/editar/excluir/mudar status) deve
+      // resolver a conexão certa via window._resolverFilial(proc) — nunca
+      // assumir "a conexão padrão", que é exatamente o bug que um protótipo
+      // anterior deste app tinha (escrevia sempre no projeto errado).
+      window._gfConnections = {
+        cgr: supabaseCgr ? { db: supabaseCgr, COLL, fbModules: fbModulesCgr, auth: supabaseCgr.auth } : null,
+        cba: supabaseCba ? { db: supabaseCba, COLL, fbModules: fbModulesCba, auth: supabaseCba.auth } : null,
+      };
+      window._resolverFilial = function(proc) {
+        if (window._gfMode !== 'consolidado') {
+          return window._gfConnections[ACTIVE_BRANCH_CODE];
+        }
+        const code = proc && proc._filialOrigem;
+        if (code !== 'cgr' && code !== 'cba') return null; // não resolveu → quem chamar tem que travar, nunca "chutar"
+        return window._gfConnections[code] || null;
+      };
 
       // ─── NOTIFICAÇÕES PUSH ───
       window._notifStatusAnterior = null; // null = primeira carga, não notifica
@@ -330,6 +376,20 @@
         try {
           const { error } = await auth.signInWithPassword({ email, password: pass });
           if (error) throw error;
+          if (IS_CONSOLIDADO && window._gfConnections.cba) {
+            // Tenta logar também na segunda unidade com a mesma credencial —
+            // se falhar, segue só com a primeira; window._resolverFilial vai
+            // travar (sem escrever nada) qualquer tentativa de mexer num
+            // registro de Cuiabá até essa sessão autenticar lá também.
+            try {
+              const { error: errCba } = await window._gfConnections.cba.auth.signInWithPassword({ email, password: pass });
+              window._consolidadoCbaOk = !errCba;
+              if (errCba) console.warn('[Consolidado] Não autenticou em Cuiabá:', errCba.message);
+            } catch (e2) {
+              window._consolidadoCbaOk = false;
+              console.warn('[Consolidado] Não autenticou em Cuiabá:', e2.message);
+            }
+          }
         } catch(e) {
           let msg = 'E-mail ou senha incorretos.';
           if (e.message?.includes('Invalid login credentials')) msg = 'E-mail ou senha incorretos.';
@@ -401,8 +461,10 @@
           mostrarChecklist(window.procedimentos[idx], 'concluido', async () => {
             window.procedimentos[idx].status = 'concluido';
             window.renderAgendadorLista();
-            const { doc: docFn, setDoc: sd } = window._fbModules;
-            try { await sd(docFn(window._fbDb, window._fbColl, docId), { ...window.procedimentos[idx] }); }
+            const conn = window._resolverFilial(window.procedimentos[idx]);
+            if (!conn) { alert('❌ Não foi possível determinar a unidade deste registro. Nada foi salvo.'); return; }
+            const { doc: docFn, setDoc: sd } = conn.fbModules;
+            try { await sd(docFn(conn.db, conn.COLL, docId), { ...window.procedimentos[idx] }); }
             catch(e) { alert('Erro ao confirmar: ' + e.message); }
           }, {blocking:false});
         };
@@ -598,15 +660,18 @@
         aplicarAuth();
       });
 
-      window.addEventListener('DOMContentLoaded', () => {
-        aplicarBrandingFilial();
-        if (new URLSearchParams(location.search).get('demo') === '1') {
-          window.entrarDemo();
-        }
-        const { collection: col, onSnapshot: snap } = window._fbModules;
-        snap(col(db, COLL), (snapshot) => {
-          const dados = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
-          if (window._isDemoUser) {
+      // Guarda os dados de cada filial separados, e só combina os dois na hora
+      // de aplicar no window.procedimentos — assim uma atualização vinda de
+      // uma filial nunca apaga o que já tinha sido carregado da outra.
+      const _porFilial = { cgr: [], cba: [] };
+      function _procedimentosCombinados() {
+        if (window._gfMode === 'consolidado') return [..._porFilial.cgr, ..._porFilial.cba];
+        return _porFilial[ACTIVE_BRANCH_CODE] || [];
+      }
+
+      function processarSnapshotFilial(branchCode, conn, snapshot) {
+        const dados = snapshot.docs.map(d => ({ _docId: d.id, _filialOrigem: branchCode, ...d.data() }));
+        if (window._isDemoUser) {
             // Mapa de mascaramento persiste em localStorage — mesmo nome real
             // sempre vira o mesmo rótulo demo, mesmo depois de recarregar a página.
             let maskMaps;
@@ -670,9 +735,9 @@
                 p.autoTransicaoEm = new Date().toISOString();
                 try { notificarMudancaStatus(p, statusAnterior); } catch(e3) {}
                 try {
-                  const { setDoc: sd, doc: docFn } = window._fbModules;
-                  if (p._docId) sd(docFn(db, COLL, p._docId), { ...p });
-                } catch(e2) { console.warn('Auto-status:', e2); }
+                  const { setDoc: sd, doc: docFn } = conn.fbModules;
+                  if (p._docId) sd(docFn(conn.db, conn.COLL, p._docId), { ...p });
+                } catch(e2) { console.warn('Auto-status (' + branchCode + '):', e2); }
               }
 
               dados.forEach(p => {
@@ -728,7 +793,9 @@
                 }
               });
 
-              window.procedimentos.splice(0, window.procedimentos.length, ...dados);
+              _porFilial[branchCode] = dados;
+              const dadosCombinados = _procedimentosCombinados();
+              window.procedimentos.splice(0, window.procedimentos.length, ...dadosCombinados);
               window.nextId = window.procedimentos.length > 0 ? Math.max(...window.procedimentos.map(p => p.id || 0)) + 1 : 1;
 
               // Renderizar lista do agendador (só para role agendador)
@@ -744,6 +811,27 @@
             } catch(e) { console.error('Erro ao aplicar dados:', e); }
           }
           aplicar();
+      }
+
+      // Uma assinatura em tempo real por conexão ativa — só CGR/CBA fora do
+      // modo Consolidado (comportamento de sempre), as duas ao mesmo tempo
+      // dentro dele. Cada callback só mexe na própria fatia (_porFilial[code]),
+      // então uma atualização de uma filial nunca apaga a outra.
+      window.addEventListener('DOMContentLoaded', () => {
+        aplicarBrandingFilial();
+        if (new URLSearchParams(location.search).get('demo') === '1') {
+          window.entrarDemo();
+        }
+        ['cgr', 'cba'].forEach(code => {
+          const conn = window._gfConnections[code];
+          if (!conn) return;
+          if (window._gfMode !== 'consolidado' && code !== ACTIVE_BRANCH_CODE) return;
+          try {
+            const { collection: col, onSnapshot: snap } = conn.fbModules;
+            snap(col(conn.db, conn.COLL), (snapshot) => processarSnapshotFilial(code, conn, snapshot));
+          } catch (e) {
+            console.warn('[onSnapshot] Falha ao assinar ' + code + ':', e);
+          }
         });
       });
     </script>
@@ -4487,8 +4575,8 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
             <button type="button" class="login-btn branch-btn" onclick="window._escolherFilial('cgr')">Campo Grande</button>
             <button type="button" class="login-btn branch-btn" onclick="window._escolherFilial('cba')">Cuiabá</button>
+            <button type="button" class="login-btn branch-btn" onclick="window._escolherFilial('consolidado')" style="background:linear-gradient(135deg,#6366f1,#818cf8);">Consolidado (as duas juntas)</button>
         </div>
-        <a href="./consolidado.html" class="login-toggle-link" style="display:block;margin-top:14px;text-align:center;">Ver as duas unidades juntas (somente leitura) →</a>
     </div>
 </div>
 
@@ -4516,7 +4604,6 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
 
         <div class="login-error" id="loginError" style="display:none;"></div>
         <button type="button" class="login-toggle-link" onclick="window._trocarFilial()" style="margin-top:10px;">Trocar unidade (atual: <span id="filialAtualLabel"></span>)</button>
-        <a href="./consolidado.html" class="login-toggle-link" style="display:block;margin-top:6px;">Ver as duas unidades juntas (somente leitura) →</a>
     </div>
 </div>
 
@@ -5569,6 +5656,15 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
                 </div>
 
                 <input type="hidden" id="f-cidade" value="Campo Grande">
+
+                <div class="form-group full" id="g-filial-consolidado" style="display:none;">
+                    <label class="form-label">Filial *</label>
+                    <select class="form-select" id="f-filial-consolidado">
+                        <option value="">Selecione a unidade</option>
+                        <option value="cgr">Campo Grande</option>
+                        <option value="cba">Cuiabá</option>
+                    </select>
+                </div>
 
                 <div class="form-group">
                     <label class="form-label">Status *</label>
@@ -6702,11 +6798,13 @@ async function save() {
 // ─── SUPABASE: salvar/atualizar procedimento ───
 async function fbSaveProc(proc) {
     try {
-        const { collection: col, addDoc, setDoc, doc } = window._fbModules;
-        const db = window._fbDb;
-        const COLL = window._fbColl;
+        const conn = window._resolverFilial(proc);
+        if (!conn) { alert('❌ Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro. Nada foi salvo.'); return; }
+        const { collection: col, addDoc, setDoc, doc } = conn.fbModules;
+        const db = conn.db;
+        const COLL = conn.COLL;
         if (!db || !COLL) { alert('❌ Banco não inicializado. Recarregue a página.'); return; }
-        const { _docId, _filial, ...data } = proc;
+        const { _docId, _filial, _filialOrigem, ...data } = proc;
         data._updatedAt = new Date().toISOString();
         // Histórico de status
         const userEmail = window._operadorNome || (window._currentUser ? window._currentUser.email : 'sistema');
@@ -6733,8 +6831,11 @@ async function fbSaveProc(proc) {
 
 // ─── SUPABASE: deletar procedimento ───
 async function fbDeleteProc(docId) {
-    const { deleteDoc, doc } = window._fbModules;
-    await deleteDoc(doc(window._fbDb, window._fbColl, docId));
+    const existing = window.procedimentos ? window.procedimentos.find(p => p._docId === docId) : null;
+    const conn = window._resolverFilial(existing);
+    if (!conn) { alert('❌ Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro. Nada foi excluído.'); return; }
+    const { deleteDoc, doc } = conn.fbModules;
+    await deleteDoc(doc(conn.db, conn.COLL, docId));
 }
 
 // ─── SYNC TOAST ───
@@ -7541,10 +7642,12 @@ function perguntarColetaRealizada(docId, tipo) {
         mostrarChecklist(procedimentos[idx], 'concluido', async () => {
             procedimentos[idx].status = 'concluido';
             try {
-                const { setDoc, doc } = window._fbModules;
-                await setDoc(doc(window._fbDb, window._fbColl, docId), procedimentos[idx]);
+                const conn = window._resolverFilial(procedimentos[idx]);
+                if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+                const { setDoc, doc } = conn.fbModules;
+                await setDoc(doc(conn.db, conn.COLL, docId), procedimentos[idx]);
                 window.showSyncToast('✅ Coleta marcada como concluída!');
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); alert('❌ ' + e.message); }
             renderCards(); updateStats(); updateAlerts();
         }, {blocking:false});
     };
@@ -7555,10 +7658,12 @@ function perguntarColetaRealizada(docId, tipo) {
         if (idx === -1) return;
         procedimentos[idx].status = 'a_retirar';
         try {
-            const { setDoc, doc } = window._fbModules;
-            await setDoc(doc(window._fbDb, window._fbColl, docId), procedimentos[idx]);
+            const conn = window._resolverFilial(procedimentos[idx]);
+            if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+            const { setDoc, doc } = conn.fbModules;
+            await setDoc(doc(conn.db, conn.COLL, docId), procedimentos[idx]);
             window.showSyncToast('📦 Status atualizado para Aguardando Retirada');
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error(e); alert('❌ ' + e.message); }
         renderCards(); updateStats(); updateAlerts();
     };
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
@@ -7583,10 +7688,12 @@ async function marcarMaterialRetirado(docId, valor) {
     if (idx === -1) return;
     procedimentos[idx].materialRetirado = procedimentos[idx].materialRetirado === valor ? null : valor;
     try {
-        const { setDoc, doc } = window._fbModules;
-        await setDoc(doc(window._fbDb, window._fbColl, procedimentos[idx]._docId), procedimentos[idx]);
+        const conn = window._resolverFilial(procedimentos[idx]);
+        if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+        const { setDoc, doc } = conn.fbModules;
+        await setDoc(doc(conn.db, conn.COLL, procedimentos[idx]._docId), procedimentos[idx]);
         window.showSyncToast(valor === 'sim' ? '✅ Material marcado como retirado!' : '❌ Material marcado como não retirado');
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error(e); alert('❌ ' + e.message); }
     renderCards();
 }
 
@@ -7624,10 +7731,12 @@ function perguntarMaterialRetirado(docId) {
             procedimentos[idx].materialRetirado = 'sim';
             procedimentos[idx].status = 'concluido';
             try {
-                const { setDoc, doc } = window._fbModules;
-                await setDoc(doc(window._fbDb, window._fbColl, docId), procedimentos[idx]);
+                const conn = window._resolverFilial(procedimentos[idx]);
+                if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+                const { setDoc, doc } = conn.fbModules;
+                await setDoc(doc(conn.db, conn.COLL, docId), procedimentos[idx]);
                 window.showSyncToast('✅ Material retirado — marcado como concluído!');
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); alert('❌ ' + e.message); }
             renderCards(); updateStats(); updateAlerts();
         }, {blocking:false});
     };
@@ -7639,10 +7748,12 @@ function perguntarMaterialRetirado(docId) {
         procedimentos[idx].materialRetirado = 'nao';
         procedimentos[idx].status = 'a_retirar';
         try {
-            const { setDoc, doc } = window._fbModules;
-            await setDoc(doc(window._fbDb, window._fbColl, docId), procedimentos[idx]);
+            const conn = window._resolverFilial(procedimentos[idx]);
+            if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+            const { setDoc, doc } = conn.fbModules;
+            await setDoc(doc(conn.db, conn.COLL, docId), procedimentos[idx]);
             window.showSyncToast('📦 Status atualizado para Aguardando Retirada');
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error(e); alert('❌ ' + e.message); }
         renderCards(); updateStats(); updateAlerts();
     };
 
@@ -7724,8 +7835,10 @@ function abrirInfoVolumesUrgentes(docId) {
         proc.cte                = document.getElementById('ic-cte').value.trim();
         proc.nfCompra           = document.getElementById('ic-nf-compra').value.trim();
         try {
-            const { setDoc, doc } = window._fbModules;
-            await setDoc(doc(window._fbDb, window._fbColl, proc._docId), proc);
+            const conn = window._resolverFilial(proc);
+            if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+            const { setDoc, doc } = conn.fbModules;
+            await setDoc(doc(conn.db, conn.COLL, proc._docId), proc);
             showSyncToast('✈️ Informações de coleta salvas!');
             overlay.remove();
         } catch(err) { alert('Erro ao salvar: ' + err.message); }
@@ -8363,6 +8476,15 @@ function editProc(docId) {
     document.getElementById('modalTitle').textContent = 'Editar Procedimento';
     document.getElementById('editIndex').value = editingIndex;
 
+    // Filial travada ao editar — não dá pra "mover" um registro de uma cidade
+    // pra outra editando (isso exigiria apagar de um banco e recriar no
+    // outro, uma ação deliberada separada, não um efeito colateral de editar).
+    const fFilialConsEdit = document.getElementById('f-filial-consolidado');
+    if (fFilialConsEdit) {
+        fFilialConsEdit.value = p._filialOrigem || '';
+        fFilialConsEdit.disabled = true;
+    }
+
     // Hospital
     // Hospital: verificar se está no datalist ou é "outro"
     (function() {
@@ -8555,6 +8677,8 @@ function _doOpenModal() {
     document.getElementById('modalTitle').textContent = 'Adicionar Procedimento';
     document.getElementById('procForm').reset();
     document.getElementById('editIndex').value = '';
+    const fFilialCons = document.getElementById('f-filial-consolidado');
+    if (fFilialCons) { fFilialCons.disabled = false; fFilialCons.value = ''; }
     // Pré-preenche o vendedor com quem já se identificou (conta comercial@ compartilhada)
     if (window._operadorNome) {
         const selVend = document.getElementById('f-vendedor');
@@ -8648,6 +8772,23 @@ function atualizarSubgrupos(valorAtual, valorAtual2) {
 async function saveProcedure(e) {
     e.preventDefault();
 
+    // Modo Consolidado: a filial (Campo Grande/Cuiabá) precisa estar escolhida
+    // antes de salvar — sem isso não tem como saber em qual dos dois bancos
+    // gravar, e "chutar" um deles é exatamente o tipo de erro que não pode
+    // acontecer aqui.
+    let _filialOrigemForm = null;
+    if (window._gfMode === 'consolidado') {
+        const fFilialCons = document.getElementById('f-filial-consolidado');
+        _filialOrigemForm = fFilialCons ? fFilialCons.value : '';
+        if (_filialOrigemForm !== 'cgr' && _filialOrigemForm !== 'cba') {
+            fFilialCons.style.borderColor = '#f97316';
+            fFilialCons.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.3)';
+            fFilialCons.focus();
+            alert('⚠️ Selecione a unidade (Campo Grande ou Cuiabá) antes de salvar.');
+            return;
+        }
+    }
+
     let hospital = document.getElementById('f-hospital').value.trim();
     if (hospital === 'Outro...') {
         hospital = document.getElementById('f-outro-hospital').value.trim().toUpperCase();
@@ -8707,7 +8848,12 @@ async function saveProcedure(e) {
     const existingProc = editingDocId ? procedimentos.find(p => p._docId === editingDocId) : null;
 
     const cidadeVal = document.getElementById('f-cidade') ? document.getElementById('f-cidade').value : (window._branchConfig ? window._branchConfig.cityShort : '');
-    const filialProc = window._activeBranch;
+    // No modo Consolidado, a filial vem do registro existente (travada, não
+    // editável) ou do campo escolhido pra um registro novo — nunca do
+    // "padrão" da sessão, que não existe de forma única nesse modo.
+    const filialProc = window._gfMode === 'consolidado'
+        ? (existingProc ? existingProc._filialOrigem : _filialOrigemForm)
+        : window._activeBranch;
 
     const proc = {
         id: existingProc ? existingProc.id : nextId++,
@@ -8752,6 +8898,7 @@ async function saveProcedure(e) {
         itens: serializeItens(),
         obs: document.getElementById('f-obs').value,
         _filial: filialProc,
+        _filialOrigem: filialProc,
         isColeta: _isColeta || (existingProc && _ehColeta(existingProc)) || false
     };
 
@@ -9797,6 +9944,11 @@ function exportBackupJSON() {
 }
 
 async function importBackupJSON(event) {
+    if (window._gfMode === 'consolidado') {
+        alert('❌ Restaurar backup não está disponível no modo Consolidado — o backup não tem como saber de qual unidade (Campo Grande/Cuiabá) cada registro é. Abra uma unidade específica pra restaurar.');
+        event.target.value = '';
+        return;
+    }
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -9997,10 +10149,6 @@ function removerAnexo() {
 // ─── PROMOÇÃO AUTOMÁTICA: Em Procedimento → Aguardando Retirada ───
 async function verificarPromocaoRetirada() {
     const hoje = todayStr();
-    const { setDoc, doc } = window._fbModules;
-    const db = window._fbDb;
-    const COLL = window._fbColl;
-    if (!db || !COLL || !setDoc) return;
 
     const pendentes = procedimentos.filter(p => {
         if (p.status !== 'andamento' && p.status !== 'coleta_urgente') return false;
@@ -10011,9 +10159,12 @@ async function verificarPromocaoRetirada() {
 
     for (const proc of pendentes) {
         if (!proc._docId) continue;
+        const conn = window._resolverFilial(proc);
+        if (!conn) { console.warn('Auto-promoção: filial não resolvida, pulando', proc._docId); continue; }
         try {
             proc.status = 'a_retirar';
-            await setDoc(doc(db, COLL, proc._docId), proc);
+            const { setDoc, doc } = conn.fbModules;
+            await setDoc(doc(conn.db, conn.COLL, proc._docId), proc);
             console.log('Auto-promovido para Aguardando Retirada:', proc.paciente, proc.retirada);
         } catch(e) {
             console.warn('Erro ao promover:', proc._docId, e);
@@ -10577,6 +10728,7 @@ function duplicarProc(docId) {
                     'f-cte':                    proc.cte||'',
                     'f-vendedor':               proc.vendedor||'',
                     'f-cidade':                 proc.cidade||'',
+                    'f-filial-consolidado':     proc._filialOrigem||'',
                     'f-obs':                    proc.obs||'',
                     'f-coleta-obs':             proc.coletaObs||'',
                     'f-coleta-anexo':           proc.coletaAnexo||'',
@@ -10624,6 +10776,7 @@ function duplicarProc(docId) {
                 'f-procedimento':proc.procedimento||'',
                 'f-vendedor':    proc.vendedor||'',
                 'f-linha':       proc.linha||'',
+                'f-filial-consolidado': proc._filialOrigem||'',
                 'f-status':      proc.status||'a_agendar',
                 'f-data':        proc.data||'',
                 'f-inicio':      proc.inicio||'',
