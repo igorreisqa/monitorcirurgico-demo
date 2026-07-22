@@ -83,7 +83,15 @@
       const SUPABASE_URL = BR.url;
       const SUPABASE_ANON_KEY = BR.key;
 
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Sessão de demo usa uma chave de armazenamento separada da sessão real —
+      // sem isso, quem entrasse via ?demo=1 ficava com a sessão salva e ela
+      // voltava sozinha em visitas normais (sem o parâmetro), já que agora
+      // produção e demo rodam no mesmo endereço (antes o demo ficava isolado
+      // num domínio à parte, então isso nunca vazava).
+      const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1';
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { storageKey: (_isDemoUrl ? 'sb-demo-' : 'sb-') + ACTIVE_BRANCH_CODE + '-auth' }
+      });
       const auth = supabase.auth;
       window._fbAuth = auth;
       window._supabase = supabase;
