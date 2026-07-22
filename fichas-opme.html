@@ -1,10 +1,31 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<script>if(new URLSearchParams(location.search).get('demo')==='1')document.documentElement.classList.add('modo-demo');</script>
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var f = p.get('filial');
+  if (f === 'cgr' || f === 'cba') localStorage.setItem('gf_branch_opme_pref', f);
+  if (p.get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app') document.documentElement.classList.add('modo-demo');
+
+  var principal = localStorage.getItem('gf_branch');
+  var pref      = localStorage.getItem('gf_branch_opme_pref');
+  var resolved = (principal === 'cgr' || principal === 'cba') ? principal
+               : (pref === 'cgr' || pref === 'cba') ? pref
+               : null;
+
+  if (resolved) { window._opmeBranch = resolved; }
+  else { document.documentElement.classList.add('gf-need-branch-picker'); }
+
+  window._escolherFilialOpme = function(code) {
+    localStorage.setItem('gf_branch_opme_pref', code);
+    location.reload();
+  };
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Fichas OPME · GF Medical · Campo Grande</title>
+<title>Fichas OPME · GF Medical</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -244,6 +265,10 @@ tbody tr:hover .row-acts{opacity:1}
 .login-btn:hover{background:#155e3a;transform:translateY(-1px)}
 .login-err{font-size:0.74rem;color:#ef4444;margin-top:10px;text-align:center;display:none}
 .login-err.show{display:block}
+.branch-picker-overlay{display:none}
+html.gf-need-branch-picker #login-screen,html.gf-need-branch-picker #app-root{display:none!important}
+html.gf-need-branch-picker .branch-picker-overlay{display:flex!important}
+.branch-btn{width:100%}
 .empty-col{text-align:center;padding:30px 10px;font-family:var(--mono);font-size:0.7rem;color:var(--text3)}
 .empty-page{text-align:center;padding:60px 20px;font-family:var(--mono);font-size:0.82rem;color:var(--text3)}
 @media(max-width:1100px){.kanban-board{grid-template-columns:repeat(3,1fr)}}
@@ -265,13 +290,26 @@ tbody tr:hover .row-acts{opacity:1}
 </head>
 <body>
 
+<div id="branchPickerOverlay" class="login-screen branch-picker-overlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon"><img src="logo.jpg" alt="GF Medical"></div>
+      <div class="login-logo-text"><strong>GF Medical</strong><span>Fichas OPME</span></div>
+    </div>
+    <div class="login-title">Escolha sua unidade</div>
+    <div class="login-sub">Selecione a filial pra abrir as Fichas OPME</div>
+    <button type="button" class="login-btn branch-btn" onclick="window._escolherFilialOpme('cgr')">Campo Grande</button>
+    <button type="button" class="login-btn branch-btn" style="margin-top:10px;" onclick="window._escolherFilialOpme('cba')">Cuiabá</button>
+  </div>
+</div>
+
 <div id="login-screen" class="login-screen">
   <div class="login-box">
     <div class="login-logo">
       <div class="login-logo-icon"><img src="logo.jpg" alt="GF Medical"></div>
       <div class="login-logo-text"><strong>GF Medical</strong><span>Fichas OPME</span></div>
     </div>
-    <div class="login-filial-badge">🟢 Filial Campo Grande · MS</div>
+    <div class="login-filial-badge" id="login-filial-badge">🟢 Filial Campo Grande · MS</div>
     <div class="login-title">Entrar no sistema</div>
     <div class="login-sub">Use as mesmas credenciais do Monitor Cirúrgico</div>
     <div class="login-field"><label class="login-label">E-mail</label><input class="login-input" type="email" id="l-email" placeholder="seu@email.com" autocomplete="email"></div>
@@ -443,12 +481,25 @@ tbody tr:hover .row-acts{opacity:1}
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createFirestoreShim, createStorageShim } from './supabase-shim.js';
 
-const SUPABASE_URL = "https://rqzqetfoxiutabsooqqn.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_P3EggMdsxQUoKnX_pLMaRQ_ZrGEYpIP";
+const BRANCHES = {
+  cgr: { url: "https://rqzqetfoxiutabsooqqn.supabase.co", key: "sb_publishable_P3EggMdsxQUoKnX_pLMaRQ_ZrGEYpIP", label: "Campo Grande", cityLabel: "Campo Grande, MS" },
+  cba: { url: "https://cyztucqhfotqhauavepu.supabase.co", key: "sb_publishable_LnJYIlIDvTF6l4MMQwZ-Kg_uCBXnZRM", label: "Cuiabá",       cityLabel: "Cuiabá, MT" },
+};
+const ACTIVE_BRANCH_CODE = window._opmeBranch; // resolvido no <head>, sempre 'cgr' ou 'cba' aqui
+const BR = BRANCHES[ACTIVE_BRANCH_CODE];
+
+document.title = 'Fichas OPME · GF Medical · ' + BR.label;
+const _loginFilialBadge = document.getElementById('login-filial-badge');
+if (_loginFilialBadge) _loginFilialBadge.textContent = '🟢 Filial ' + BR.cityLabel;
+const _sidebarFilialLabel = document.getElementById('sidebar-filial-label');
+if (_sidebarFilialLabel) _sidebarFilialLabel.textContent = BR.cityLabel;
 
 const COLL = 'fichas_opme';
-const FILIAL = 'CGR';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const FILIAL = ACTIVE_BRANCH_CODE.toUpperCase();
+const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1' || document.documentElement.classList.contains('modo-demo');
+const supabase = createClient(BR.url, BR.key, {
+  auth: { storageKey: (_isDemoUrl ? 'sb-demo-' : 'sb-') + ACTIVE_BRANCH_CODE + '-auth' }
+});
 const auth = supabase.auth;
 const db   = supabase; // mantido como "db" só para minimizar diff no resto do arquivo
 const { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, getDoc } = createFirestoreShim(supabase);
@@ -520,13 +571,13 @@ auth.onAuthStateChange((_event, session) => {
   const isDemo = !!u && (u.email||'').toLowerCase() === DEMO_EMAIL;
   window._isDemoUser = isDemo;
   document.documentElement.classList.toggle('modo-demo', isDemo);
-  if (isDemo) document.title = document.title.replace(/\s*·\s*GF Medical/i, '').replace(/\s*·\s*Campo Grande/i, '');
+  if (isDemo) document.title = document.title.replace(/\s*·\s*GF Medical/i, '').replace(new RegExp('\\s*·\\s*' + BR.label, 'i'), '');
   if (u) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-root').style.display = 'flex';
     const nome = u.email || '';
-    document.getElementById('user-nm').textContent = nome.split(' ')[0] || nome;
-    document.getElementById('user-av').textContent = nome.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase() || '?';
+    document.getElementById('user-nm').textContent = nome.split('@')[0] || nome;
+    document.getElementById('user-av').textContent = (nome.split('@')[0] || '?').slice(0,2).toUpperCase();
     carregarFichas();
     carregarRegistros();
     solicitarPermissaoNotificacoesOpme();
@@ -1347,6 +1398,16 @@ function parsearC160(texto, filename) {
   const ls = texto.split(/\r?\n/).map(l => l.trim());
   const txt = ls.join('\n');
 
+  // Cuiabá: o C160 de lá vem com o "Cliente" do pedido logo antes de
+  // "Dt. Digitação" — esse campo faz o papel de Hospital pra essa filial
+  // (ex.: "284 UNIMED CAMPO GRANDE MS - CONVENIO Dt. Digitação: 12/06/2026").
+  // Roda antes do resto pra ter prioridade sobre a extração por rótulo
+  // "Hospital:" abaixo (que só preenche se r.hospital ainda não tiver valor).
+  if (ACTIVE_BRANCH_CODE === 'cba') {
+    const mCliente = txt.match(/\d{1,6}\s+(.+?)\s+Dt\.\s*Digita[çc][aã]o\s*:/i);
+    if (mCliente) r.hospital = lmp(mCliente[1]);
+  }
+
   // 2. Paciente inline (form: "Paciente: NOME")
   const mPac = txt.match(/Paciente\s*[:\-·]\s*([^\n\r]+)/i);
   if (mPac) r.paciente = lmp(mPac[1]);
@@ -1360,7 +1421,11 @@ function parsearC160(texto, filename) {
   // OBS: o espaço opcional logo após os dois-pontos usa [ \t]* (não \s*) de
   // propósito — \s também casa "\n", então um rótulo vazio como "Médico:\n"
   // "vazaria" para a linha seguinte e capturaria o próximo rótulo como valor.
-  const HOSP_LABELS = /(?:Hospital|Cl[ií]nica|Nome\s+do\s+Hospital|Estabelecimento)/i;
+  // Cuiabá reconhece mais variantes de rótulo (os PDFs de lá vêm em layout
+  // diferente dos de Campo Grande) — preservado por filial.
+  const HOSP_LABELS = ACTIVE_BRANCH_CODE === 'cba'
+    ? /(?:Hospital|Cl[ií]nica|Cliente(?:\s*\/\s*Hospital)?|Nome\s+do\s+Cliente|Raz[aã]o\s+Social|Empresa|Estabelecimento)/i
+    : /(?:Hospital|Cl[ií]nica|Nome\s+do\s+Hospital|Estabelecimento)/i;
   const hdInline = [
     [/(?:M[eé]dico|Cirurgi[aã]o)(?:\s+(?:Solicitante|Respons[aá]vel))?\s*[:\-·][ \t]*([^\n\r]+)/i, 'medico'],
     [new RegExp(HOSP_LABELS.source + String.raw`\s*(?:\/[^:\n]*)?\s*[:\-·][ \t]*([^\n\r]+)`, 'i'), 'hospital'],
@@ -1611,7 +1676,7 @@ window.exportarCSV = () => {
   ].map(v => '"'+(v||'').replace(/"/g,'""')+'"').join(';'));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿'+[cab.join(';'),...rows].join('\n'),{type:'text/csv;charset=utf-8'}]));
-  a.download = 'fichas-opme-cgr-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download = 'fichas-opme-'+ACTIVE_BRANCH_CODE+'-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
 };
 
@@ -1796,6 +1861,18 @@ document.getElementById('f-conv').addEventListener('change', () => {
     clienteInput.value = document.getElementById('f-conv').value;
   }
 });
+
+// Sincronização: Hospital → Cliente (só Cuiabá — auto-preencher cliente com
+// hospital se vazio; em Campo Grande esse comportamento nunca existiu, então
+// fica condicionado à filial pra não mudar o que já funciona lá).
+if (ACTIVE_BRANCH_CODE === 'cba') {
+  document.getElementById('f-hosp').addEventListener('change', () => {
+    const clienteInput = document.getElementById('f-cliente');
+    if (!clienteInput.value.trim()) {
+      clienteInput.value = document.getElementById('f-hosp').value;
+    }
+  });
+}
 </script>
 </body>
 </html>
