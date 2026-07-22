@@ -6311,7 +6311,10 @@ function _tentarDesbloquear() {
 }
 
 // ─── ATIVAÇÃO DE SOM INTEGRADA AO HEADER ───
-const _AUDIO_KEY = window._brKey('audio_unlocked');
+// Não depende de window._brKey (definido no <script type="module">) porque
+// esse script clássico pode rodar antes do módulo terminar — lê a filial
+// direto do localStorage pra não travar o carregamento inteiro da página.
+const _AUDIO_KEY = 'gf_' + (localStorage.getItem('gf_branch') === 'cba' ? 'cba' : 'cgr') + '_audio_unlocked';
 
 function _atualizarBotaoSom(ativo) {
     const btn = document.getElementById('btn-ativar-som');
