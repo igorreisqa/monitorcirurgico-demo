@@ -506,6 +506,9 @@
 
             window._currentUser = { uid: user.id, email: user.email, nome: perfil.nome || user.email, role: perfil.role };
             overlay.classList.add('hidden');
+            // Login (inclusive demo automático via ?demo=1) conseguiu entrar —
+            // não faz sentido o seletor de filial continuar cobrindo a tela.
+            document.documentElement.classList.remove('gf-need-branch-picker');
             const logoutEl  = document.getElementById('logoutBtn');
             const adminBtn  = document.getElementById('btn-gerenciar-usuarios');
             const agendView = document.getElementById('agendadorView');
@@ -7010,7 +7013,16 @@ async function _abrirWhatsApp(texto) {
 }
 
 // ─── EXPORTAR WHATSAPP — aguardando retirada ───
+// Confirma a filial ativa antes de disparar uma cobrança via WhatsApp — o app
+// agora atende as duas cidades a partir do mesmo código, então vale garantir
+// que quem está cobrando não esqueceu de qual unidade está o dado na tela.
+function confirmarFilialAntesDeCobrar() {
+    const nome = (window._branchConfig && window._branchConfig.label) || window._activeBranch || '—';
+    return confirm('Você está prestes a cobrar via WhatsApp pela unidade: ' + nome + '.\n\nConfirma que é a filial certa antes de enviar?');
+}
+
 async function exportarWhatsApp() {
+    if (!confirmarFilialAntesDeCobrar()) return;
     await verificarPromocaoRetirada();
 
     var fmt = function(d) { return d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—'; };
@@ -8443,7 +8455,7 @@ function editProc(docId) {
 // "Comercial e Estoque" é uma opção genérica (equipe sem nome fixo na lista):
 // ao escolher, pede o nome da pessoa por texto livre.
 const NOME_ESTOQUE_MARCADOR = 'Comercial e Estoque';
-const NOMES_OPERADOR_CG = ['Tiago da Silva Siqueira','Marcos Gonçalves da Silva','Marcella Fernandes Ricci','Wilson Cordeiro','Roberto Alex Cândido','Gabriely Amorim Dias','Regiane da Silva Ramos','Gustavo Ovídio Mussi Faverão','Jeferson Cruz','Leandro Sabino', NOME_ESTOQUE_MARCADOR];
+const NOMES_OPERADOR_CG = ['Beatriz Helena Calil Barbosa','Cristina Luzia','Eva Diana de Araujo','Gabriely Amorim Dias','Gustavo Ovídio Mussi Faverão','Igor dos Reis Silva','Izabela Crozetta','Jeferson Rodrigues Cruz','Kauana da Silva Feitoza','Larissa Amanda Bernardo do Valle','Luis Felipe Moura Braga','Marcella Fernandes Ricci','Marcio Benedito Queiroz','Marcos Gonçalves da Silva','Murilo Julio Sant Ana Pereira','Paulo Vitor Leite da Silva','Regiane da Silva Ramos','Renata Franco de Lima','Roberto Alex Cândido','Starley Santos Silva','Thayz Benites Leonel','Tiago da Silva Siqueira','Wilson Cordeiro', NOME_ESTOQUE_MARCADOR];
 let _pendingOpenModal = null;
 
 function _resolverNomeOperador(nome, callback) {
@@ -10033,6 +10045,7 @@ function atualizarBannerPendencias() {
 }
 
 function cobrarVolumesWhatsApp() {
+    if (!confirmarFilialAntesDeCobrar()) return;
     const hoje = todayStr();
     const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—';
     const coletas = procedimentos.filter(p => {
@@ -10069,6 +10082,7 @@ function cobrarVolumesWhatsApp() {
     _abrirWhatsApp(linhas.join('\n'));
 }
 function cobrarAgendadosWhatsApp() {
+    if (!confirmarFilialAntesDeCobrar()) return;
     const hoje = todayStr();
     const amanhaD = new Date(); amanhaD.setDate(amanhaD.getDate() + 1);
     const amanha = amanhaD.getFullYear() + '-' + String(amanhaD.getMonth()+1).padStart(2,'0') + '-' + String(amanhaD.getDate()).padStart(2,'0');
@@ -16557,6 +16571,7 @@ window.sortarCentral = function(key) {
 // FIX 6 — WhatsApp em lote para Coleta
 // ════════════════════════════════════════════
 window.exportarWhatsAppColeta = function() {
+    if (typeof confirmarFilialAntesDeCobrar === 'function' && !confirmarFilialAntesDeCobrar()) return;
     const procs = window.procedimentos || [];
     const hoje = (function(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
     const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—';
