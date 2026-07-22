@@ -575,6 +575,7 @@
             if (isAdminFixo) perfil.role = 'admin';
 
             window._currentUser = { uid: user.id, email: user.email, nome: perfil.nome || user.email, role: perfil.role };
+            window._iniciarAssinaturaFilial(ACTIVE_BRANCH_CODE);
             overlay.classList.add('hidden');
             // Login (inclusive demo automático via ?demo=1) conseguiu entrar —
             // não faz sentido o seletor de filial continuar cobrindo a tela.
@@ -816,26 +817,43 @@
           aplicar();
       }
 
-      // Uma assinatura em tempo real por conexão ativa — só CGR/CBA fora do
-      // modo Consolidado (comportamento de sempre), as duas ao mesmo tempo
-      // dentro dele. Cada callback só mexe na própria fatia (_porFilial[code]),
-      // então uma atualização de uma filial nunca apaga a outra.
+      // Assina os dados de uma filial SÓ depois de confirmar que aquela
+      // conexão está autenticada — assinar antes disso faz o select() inicial
+      // do onSnapshot rodar sem sessão, o RLS bloqueia e devolve vazio, e como
+      // essa carga inicial só acontece uma vez, os dados nunca mais aparecem
+      // sozinhos (só eventos de mudança futuros, que só afetam quem já
+      // estava no cache — daí o bug de "só aparece uma das duas cidades", ou
+      // nenhuma no caso do demo, onde nenhuma das duas conexões tem sessão
+      // salva de antes).
+      window._iniciarAssinaturaFilial = function(code) {
+        if (window['_subAtiva_' + code]) return;
+        const conn = window._gfConnections[code];
+        if (!conn) return;
+        window['_subAtiva_' + code] = true;
+        try {
+          const { collection: col, onSnapshot: snap } = conn.fbModules;
+          snap(col(conn.db, conn.COLL), (snapshot) => processarSnapshotFilial(code, conn, snapshot));
+        } catch (e) {
+          window['_subAtiva_' + code] = false;
+          console.warn('[onSnapshot] Falha ao assinar ' + code + ':', e);
+        }
+      };
+
+      // CBA só tem sessão própria no modo Consolidado (é a conexão
+      // "secundária" — a primária já é tratada pelo auth.onAuthStateChange
+      // principal, logo abaixo). Cobre tanto sessão restaurada (visita de
+      // volta já logada) quanto login novo feito dentro do doLogin().
+      if (IS_CONSOLIDADO && window._gfConnections.cba) {
+        window._gfConnections.cba.auth.onAuthStateChange((_event, session) => {
+          if (session) window._iniciarAssinaturaFilial('cba');
+        });
+      }
+
       window.addEventListener('DOMContentLoaded', () => {
         aplicarBrandingFilial();
         if (new URLSearchParams(location.search).get('demo') === '1') {
           window.entrarDemo();
         }
-        ['cgr', 'cba'].forEach(code => {
-          const conn = window._gfConnections[code];
-          if (!conn) return;
-          if (window._gfMode !== 'consolidado' && code !== ACTIVE_BRANCH_CODE) return;
-          try {
-            const { collection: col, onSnapshot: snap } = conn.fbModules;
-            snap(col(conn.db, conn.COLL), (snapshot) => processarSnapshotFilial(code, conn, snapshot));
-          } catch (e) {
-            console.warn('[onSnapshot] Falha ao assinar ' + code + ':', e);
-          }
-        });
       });
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
