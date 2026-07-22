@@ -20333,8 +20333,17 @@ document.documentElement.removeAttribute('data-theme');
 // ─── 1b. TROCAR UNIDADE (Consolidado/CGR/CBA) DIRETO DO CABEÇALHO ──
 function injetarBotaoFilial() {
     if (document.getElementById('filial-switcher-group')) return;
-    const headerRight = document.querySelector('.header > div[style*="display:flex"]');
-    if (!headerRight) return;
+    const headerRow = document.querySelector('.header > div[style*="display:flex"]');
+    if (!headerRow) return;
+    // Empilha explicitamente em duas linhas (em vez de depender de quebra
+    // automática do flex, que deixava o grupo isolado longe dos outros
+    // botões): linha de cima = Consolidado/CGR/CBA, linha de baixo = o que
+    // já existia (Notif./Sair/Som/Ao vivo/relógio) — as duas alinhadas à
+    // direita, uma em cima da outra.
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;gap:8px;';
+    headerRow.parentNode.insertBefore(wrapper, headerRow);
+
     const grupo = document.createElement('div');
     grupo.id = 'filial-switcher-group';
     grupo.style.cssText = 'display:flex;align-items:center;gap:4px;';
@@ -20350,9 +20359,9 @@ function injetarBotaoFilial() {
             title="${ativo ? 'Unidade atual' : 'Trocar para ' + o.label}"
             style="padding:7px 12px;border-radius:10px;font-family:var(--mono);font-size:0.72rem;font-weight:700;letter-spacing:0.06em;cursor:${ativo ? 'default' : 'pointer'};transition:all 0.2s;background:${ativo ? '#4db87a' : 'rgba(255,255,255,0.12)'};border:1px solid ${ativo ? '#3da868' : 'rgba(255,255,255,0.25)'};color:${ativo ? '#fff' : 'var(--text)'};">${o.label}</button>`;
     }).join('');
-    // Anexado no fim do cabeçalho (não no início) pra não ficar colado no
-    // título "CENTRAL OPERACIONAL".
-    headerRight.appendChild(grupo);
+
+    wrapper.appendChild(grupo);
+    wrapper.appendChild(headerRow);
 }
 
 // ─── 2. FAIXA ALERTA CIRURGIA PRÓXIMA ────────────────────────────
