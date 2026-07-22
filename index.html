@@ -388,7 +388,10 @@
               const { data: dataCba, error: errCba } = await window._gfConnections.cba.auth.signInWithPassword({ email, password: pass });
               window._consolidadoCbaOk = !errCba;
               if (errCba) console.warn('[Consolidado] Não autenticou em Cuiabá:', errCba.message);
-              else if (dataCba?.user) await _sincronizarPerfilFilial('cba', dataCba.user);
+              else if (dataCba?.user) {
+                window._gfConnections.cba.currentUserId = dataCba.user.id;
+                await _sincronizarPerfilFilial('cba', dataCba.user);
+              }
             } catch (e2) {
               window._consolidadoCbaOk = false;
               console.warn('[Consolidado] Não autenticou em Cuiabá:', e2.message);
@@ -567,6 +570,16 @@
         } catch (e) { console.warn('[Consolidado] Falha ao sincronizar perfil em ' + code + ':', e.message); }
       }
 
+      // O UID de um mesmo e-mail é DIFERENTE em cada projeto Supabase (bases
+      // de Auth independentes) — usar sempre o UID da conexão principal como
+      // "cadastradoPor" quebra a foreign key ao salvar num registro cuja
+      // filial é a conexão secundária. Cada conexão guarda seu próprio UID
+      // (currentUserId) e este resolvedor devolve o UID certo pra filial.
+      window._uidParaFilial = function(code) {
+        const conn = window._gfConnections[code];
+        return (conn && conn.currentUserId) || null;
+      };
+
       auth.onAuthStateChange((_event, session) => {
         const user = session?.user ?? null;
         async function aplicarAuth() {
@@ -601,6 +614,7 @@
             if (isAdminFixo) perfil.role = 'admin';
 
             window._currentUser = { uid: user.id, email: user.email, nome: perfil.nome || user.email, role: perfil.role };
+            if (window._gfConnections[ACTIVE_BRANCH_CODE]) window._gfConnections[ACTIVE_BRANCH_CODE].currentUserId = user.id;
             window._iniciarAssinaturaFilial(ACTIVE_BRANCH_CODE);
             overlay.classList.add('hidden');
             // Login (inclusive demo automático via ?demo=1) conseguiu entrar —
@@ -872,6 +886,7 @@
       if (IS_CONSOLIDADO && window._gfConnections.cba) {
         window._gfConnections.cba.auth.onAuthStateChange((_event, session) => {
           if (session) {
+            window._gfConnections.cba.currentUserId = session.user.id;
             window._iniciarAssinaturaFilial('cba');
             _sincronizarPerfilFilial('cba', session.user);
           }
@@ -8990,8 +9005,13 @@ async function saveProcedure(e) {
 
     if (existingProc && existingProc.cadastradoPor) {
         proc.cadastradoPor = existingProc.cadastradoPor;
-    } else if (window._currentUser && !proc.cadastradoPor) {
-        proc.cadastradoPor = window._currentUser.uid;
+    } else if (!proc.cadastradoPor) {
+        // O UID de "quem cadastrou" precisa ser o da FILIAL de destino do
+        // registro (cada projeto Supabase tem seu próprio UID pro mesmo
+        // e-mail) — usar sempre o UID da conexão principal quebrava a
+        // foreign key ao salvar num registro cuja filial é a secundária.
+        const uidFilial = window._uidParaFilial ? window._uidParaFilial(filialProc) : null;
+        proc.cadastradoPor = uidFilial || (window._currentUser && window._currentUser.uid);
     }
 
     if (!existingProc && window._operadorNome) {
