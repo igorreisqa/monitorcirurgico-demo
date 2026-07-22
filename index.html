@@ -4480,6 +4480,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
             <button type="button" class="login-btn branch-btn" onclick="window._escolherFilial('cgr')">Campo Grande</button>
             <button type="button" class="login-btn branch-btn" onclick="window._escolherFilial('cba')">Cuiabá</button>
         </div>
+        <a href="./consolidado.html" class="login-toggle-link" style="display:block;margin-top:14px;text-align:center;">Ver as duas unidades juntas (somente leitura) →</a>
     </div>
 </div>
 
@@ -4507,6 +4508,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
 
         <div class="login-error" id="loginError" style="display:none;"></div>
         <button type="button" class="login-toggle-link" onclick="window._trocarFilial()" style="margin-top:10px;">Trocar unidade (atual: <span id="filialAtualLabel"></span>)</button>
+        <a href="./consolidado.html" class="login-toggle-link" style="display:block;margin-top:6px;">Ver as duas unidades juntas (somente leitura) →</a>
     </div>
 </div>
 
@@ -4869,6 +4871,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
         <button class="view-tab" id="tab-dashboard" onclick="switchView('dashboard')">📊 Dashboard</button>
         <button class="view-tab" id="tab-coleta" onclick="switchView('coleta')" style="color:#818cf8;border-color:rgba(99,102,241,0.5);">✈️ Coleta Prioritária</button>
         <button class="view-tab" id="tab-opme" onclick="window.open('fichas-opme.html','_blank')" style="color:#f59e0b;border-color:rgba(245,158,11,0.5);">📋 Fichas OPME</button>
+        <button class="view-tab" id="tab-atividade" onclick="switchView('atividade')" style="color:#4db87a;border-color:rgba(77,184,122,0.5);">🕐 Atividade</button>
         <button id="btn-toggle-ocultos" onclick="toggleOcultos()" style="margin-left:auto;padding:7px 14px;background:rgba(107,114,128,0.12);border:1.5px solid rgba(107,114,128,0.35);color:#6b7280;border-radius:8px;cursor:pointer;font-family:var(--mono);font-size:0.75rem;font-weight:700;letter-spacing:0.05em;transition:all 0.2s;" title="Mostrar/ocultar Concluídos e Cancelados">👁 Ocultos</button>
     </div>
 
@@ -4883,6 +4886,15 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
 
     <div id="timeline-view" style="display:none;">
         <div class="timeline-container" id="timelineContainer"></div>
+    </div>
+
+    <!-- ATIVIDADE: quem lançou o quê e quando (cirurgia, coleta, ficha OPME) -->
+    <div id="atividade-view" style="display:none;padding:16px 0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-family:var(--mono);font-size:0.78rem;color:var(--text-dim);">Últimos lançamentos — cirurgia, coleta e ficha OPME</div>
+            <button class="btn-act" style="background:rgba(77,184,122,0.1);border-color:var(--accent2);color:var(--accent2);" onclick="renderAtividade(true)">🔄 Atualizar</button>
+        </div>
+        <div id="atividade-lista"></div>
     </div>
 
     <!-- BLACK EXECUTIVE OPS VIEW -->
@@ -9036,6 +9048,7 @@ function switchView(v) {
     const isCentral   = v === 'table';
     const isDashboard = v === 'dashboard';
     const isColeta    = v === 'coleta';
+    const isAtividade = v === 'atividade';
 
     // ── Seções da Central Cirúrgica ───────────────────────────────
     show('stats-bar',     isCentral);
@@ -9048,6 +9061,9 @@ function switchView(v) {
 
     // ── Seções da Coleta Prioritária ──────────────────────────────
     show('coleta-view', isColeta);
+
+    // ── Seção de Atividade (log de lançamentos) ───────────────────
+    show('atividade-view', isAtividade);
 
     // ── Seções fora das views (ultraHero, ultra-strip, ultra-grid) ─
     // Essas ficam visíveis só no Painel Executivo
@@ -9068,13 +9084,95 @@ function switchView(v) {
     document.getElementById('tab-dashboard').classList.toggle('active', isDashboard);
     const tabColeta = document.getElementById('tab-coleta');
     if (tabColeta) tabColeta.classList.toggle('active', isColeta);
+    const tabAtividade = document.getElementById('tab-atividade');
+    if (tabAtividade) tabAtividade.classList.toggle('active', isAtividade);
 
     // ── Renderizar ────────────────────────────────────────────────
     if (isCentral)   renderTable();
     if (isDashboard) renderDashboard();
     if (isColeta)    renderColetaView();
+    if (isAtividade) renderAtividade();
 }
 
+// ─── ATIVIDADE: quem lançou o quê e quando (cirurgia, coleta, ficha OPME) ───
+let _atividadeUsuarios = null;
+let _atividadeFichas = null;
+
+async function _carregarUsuariosAtividade() {
+    if (_atividadeUsuarios) return _atividadeUsuarios;
+    const map = {};
+    try {
+        const { collection: col, getDocs: gd } = window._fbModules;
+        const snap = await gd(col(window._fbDb, 'usuarios'));
+        snap.docs.forEach(d => { const u = d.data(); map[d.id] = u.nome || u.email || d.id; });
+    } catch (e) { console.warn('[Atividade] Falha ao carregar usuários:', e); }
+    _atividadeUsuarios = map;
+    return map;
+}
+
+async function _carregarFichasAtividade() {
+    try {
+        const { collection: col, getDocs: gd } = window._fbModules;
+        const snap = await gd(col(window._fbDb, 'fichas_opme'));
+        return snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+    } catch (e) {
+        console.warn('[Atividade] Falha ao carregar fichas OPME:', e);
+        return [];
+    }
+}
+
+async function renderAtividade(forcar) {
+    const el = document.getElementById('atividade-lista');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-family:var(--mono);font-size:0.8rem;">Carregando...</div>';
+
+    if (forcar) { _atividadeUsuarios = null; _atividadeFichas = null; }
+    const usuarios = await _carregarUsuariosAtividade();
+    if (forcar || !_atividadeFichas) _atividadeFichas = await _carregarFichasAtividade();
+
+    const quem = (uid) => uid ? (usuarios[uid] || uid) : '—';
+    const fmt = (iso) => {
+        if (!iso) return '—';
+        try { return new Date(iso).toLocaleString('pt-BR'); } catch(e) { return iso; }
+    };
+
+    const eventosProc = (window.procedimentos || [])
+        .filter(p => p._createdAt)
+        .map(p => ({
+            quando: p._createdAt,
+            quem: quem(p.cadastradoPor),
+            tipo: (typeof _ehColeta === 'function' && _ehColeta(p)) ? '✈️ Coleta' : '🏥 Cirurgia',
+            desc: (p.paciente || p.hospital || '—') + (p.hospital ? ' · ' + p.hospital : ''),
+        }));
+
+    const eventosFichas = (_atividadeFichas || [])
+        .filter(f => f.criadoEm)
+        .map(f => ({
+            quando: f.criadoEm,
+            quem: quem(f.criadoPor),
+            tipo: '📋 Ficha OPME',
+            desc: (f.paciente || f.procedimento || '—') + (f.hospital ? ' · ' + f.hospital : ''),
+        }));
+
+    const eventos = [...eventosProc, ...eventosFichas]
+        .sort((a, b) => new Date(b.quando) - new Date(a.quando))
+        .slice(0, 200);
+
+    if (!eventos.length) {
+        el.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-family:var(--mono);font-size:0.8rem;">Nenhum lançamento registrado ainda.</div>';
+        return;
+    }
+
+    el.innerHTML = eventos.map(ev => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.85rem;">
+            <span style="font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);white-space:nowrap;min-width:130px;">${fmt(ev.quando)}</span>
+            <span style="min-width:110px;">${ev.tipo}</span>
+            <span style="flex:1;color:var(--text);">${ev.desc}</span>
+            <span style="font-family:var(--mono);font-size:0.75rem;color:var(--accent2);">${ev.quem}</span>
+        </div>
+    `).join('');
+}
+window.renderAtividade = renderAtividade;
 
 // ─── RENDER COLETA VIEW — VOLUMES URGENTES ───
 // ─── ESTADO FILTROS COLETA ───
