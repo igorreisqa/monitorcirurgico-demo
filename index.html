@@ -7250,7 +7250,7 @@ async function exportarWhatsApp() {
 
     var linhas = [];
     linhas.push('Olá! 😊');
-    linhas.push('Segue as pendências de *Monitor Cirúrgico* que ainda não foram devolvidos ao estoque:');
+    linhas.push('Segue as pendências do *Monitor Cirúrgico* que ainda não foram devolvidos ao estoque:');
     _agruparPorFilialWhatsApp(cirurgias).forEach(function(grupo) {
         if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
         grupo.itens.forEach(function(p) {
