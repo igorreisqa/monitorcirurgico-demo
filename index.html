@@ -7553,17 +7553,21 @@ window.perguntarFichaOpmeEntregue = function(proc) {
 window.confirmarFichaOpmeEntregue = async function(docId) {
     const proc = procedimentos.find(p => (p._docId || String(p.id)) === String(docId));
     if (!proc) return;
-    if (!confirm('Confirma que a ficha OPME foi entregue ao estoque?\n\nIsso vai marcar o registro como Concluído.')) return;
-    mostrarChecklist(proc, 'concluido', async () => {
-        proc.status = 'concluido';
-        try {
-            await fbSaveProc(proc);
-            renderTable && renderTable();
-            renderCards && renderCards();
-            updateStats && updateStats();
-            showSyncToast('✅ Ficha OPME entregue — Concluído!');
-        } catch(e) { alert('Erro ao salvar: ' + e.message); }
-    }, {blocking:false});
+    const resposta = await window.perguntarFichaOpmeEntregue(proc);
+    if (resposta === 'sim') {
+        mostrarChecklist(proc, 'concluido', async () => {
+            proc.status = 'concluido';
+            try {
+                await fbSaveProc(proc);
+                renderTable && renderTable();
+                renderCards && renderCards();
+                updateStats && updateStats();
+                showSyncToast('✅ Ficha OPME entregue — Concluído!');
+            } catch(e) { alert('Erro ao salvar: ' + e.message); }
+        }, {blocking:false});
+    } else if (resposta === 'nao') {
+        showSyncToast('📋 Ainda aguardando entrega da Ficha OPME ao estoque');
+    }
 };
 
 // ─── CONFIRMAR RETIRADA — TABELA MONITOR ───
