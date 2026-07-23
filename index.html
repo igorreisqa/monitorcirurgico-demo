@@ -326,11 +326,11 @@
           .replace(/\s*[·•]\s*Campo\s*Grande[\s,\/]*MS/i, '');
       }
 
-      // Primeira impressão do demo: cai direto no Painel Executivo com todo o
+      // Primeira impressão do demo: cai direto na Central Cirúrgica com todo o
       // histórico (em vez do filtro padrão "hoje", que costuma vir zerado).
       function configurarVisaoDemo(tentativa) {
         if (window.switchView && window.applyPreset) {
-          window.switchView('dashboard');
+          window.switchView('table');
           window.applyPreset('todos');
           setTimeout(mostrarTourDemo, 400);
         } else if ((tentativa || 0) < 20) {
