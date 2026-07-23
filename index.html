@@ -6292,7 +6292,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Nome do Paciente</label>
+                    <label class="form-label">Nome do Paciente *</label>
                     <input class="form-input" id="f-paciente" placeholder="Nome completo do paciente">
                 </div>
 
@@ -9018,6 +9018,15 @@ async function saveProcedure(e) {
     if (!_isColeta && !hospital) { alert('Informe o nome do hospital'); return; }
     if (_isColeta && !hospital) hospital = '✈️ Retirar Volumes Urgentes';
 
+    let paciente = document.getElementById('f-paciente').value.trim();
+    if (!_isColeta && !paciente) {
+        const pEl = document.getElementById('f-paciente');
+        pEl.style.borderColor = '#f97316'; pEl.focus();
+        alert('⚠️ Informe o nome do paciente.');
+        return;
+    }
+    if (_isColeta && !paciente) paciente = '—';
+
     let convenio = document.getElementById('f-convenio').value;
     if (!_isColeta && convenio === '__outro') {
         convenio = document.getElementById('f-outro-convenio').value.trim();
@@ -9094,7 +9103,7 @@ async function saveProcedure(e) {
         status: document.getElementById('f-status').value,
         data: document.getElementById('f-data').value,
         medico: medico,
-        paciente: document.getElementById('f-paciente').value,
+        paciente: paciente,
         pacienteIdade: document.getElementById('f-pacienteIdade') ? document.getElementById('f-pacienteIdade').value.trim() : '',
         procedimento: _isColeta ? (document.getElementById('f-procedimento').value || '') : document.getElementById('f-procedimento').value,
         convenio: _isColeta && (!convenio || convenio === '—') ? '' : convenio,
