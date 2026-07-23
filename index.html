@@ -7575,6 +7575,7 @@ async function exportarWhatsApp(filtro) {
                 linhas.push('*Hospital:* ' + (p.hospital || '—'));
                 linhas.push('*Nº da Nota Fiscal:* ' + (p.nf || '—'));
                 linhas.push('*Vendedor:* ' + (p.vendedor || '—'));
+                linhas.push('*Data de Cirurgia:* ' + fmt(p.data));
                 linhas.push('*Material retirado em:* ' + fmt(p.dataConfirmacaoRetirada));
             });
         });
