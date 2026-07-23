@@ -9977,6 +9977,7 @@ async function renderAtividade(forcar) {
     if (!el) return;
     el.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-family:var(--mono);font-size:0.8rem;">Carregando...</div>';
 
+    try {
     if (forcar) { _atividadeUsuarios = null; _atividadeFichas = null; }
     const usuarios = await _carregarUsuariosAtividade();
     if (forcar || !_atividadeFichas) _atividadeFichas = await _carregarFichasAtividade();
@@ -10041,6 +10042,10 @@ async function renderAtividade(forcar) {
             </table>
         </div>
     `;
+    } catch (e) {
+        console.error('[Atividade] Falha ao carregar:', e);
+        el.innerHTML = '<div style="padding:20px;color:#d94f4f;font-family:var(--mono);font-size:0.8rem;">❌ Erro ao carregar atividade: ' + (e && e.message ? e.message : e) + '</div>';
+    }
 }
 window.renderAtividade = renderAtividade;
 
