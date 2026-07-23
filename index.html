@@ -7,9 +7,12 @@
       var p = new URLSearchParams(location.search);
       var f = p.get('filial');
       if (f === 'cgr' || f === 'cba' || f === 'consolidado') localStorage.setItem('gf_branch', f);
-      // Domínio dedicado de demonstração: entra em modo demo sempre, sem
-      // precisar de ?demo=1 na URL.
-      var _hostForcaDemo = location.hostname === 'monitorcirurgico-demo.vercel.app';
+      // Domínio/caminho dedicado de demonstração: entra em modo demo sempre,
+      // sem precisar de ?demo=1 na URL. O GitHub Pages usa o mesmo domínio
+      // (igorreisqa.github.io) do gfmedical — só o caminho muda — então
+      // checa o pathname também, não só o hostname.
+      var _hostForcaDemo = location.hostname === 'monitorcirurgico-demo.vercel.app' ||
+        location.pathname.indexOf('/monitorcirurgico-demo') === 0;
       if (p.get('demo') === '1' || _hostForcaDemo) document.documentElement.classList.add('modo-demo');
       var saved = localStorage.getItem('gf_branch');
       // Quem nunca escolheu filial (primeiro acesso, ou storage limpo) cai
@@ -116,7 +119,7 @@
       // voltava sozinha em visitas normais (sem o parâmetro), já que agora
       // produção e demo rodam no mesmo endereço (antes o demo ficava isolado
       // num domínio à parte, então isso nunca vazava).
-      const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app';
+      const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app' || location.pathname.indexOf('/monitorcirurgico-demo') === 0;
       function _criarClienteFilial(code) {
         const cfg = BRANCHES[code];
         return createClient(cfg.url, cfg.key, {
@@ -989,7 +992,7 @@
 
       window.addEventListener('DOMContentLoaded', () => {
         aplicarBrandingFilial();
-        if (new URLSearchParams(location.search).get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app') {
+        if (new URLSearchParams(location.search).get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app' || location.pathname.indexOf('/monitorcirurgico-demo') === 0) {
           window.entrarDemo();
         }
       });
