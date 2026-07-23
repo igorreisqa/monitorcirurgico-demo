@@ -8086,18 +8086,36 @@ function perguntarMaterialRetirado(docId) {
         overlay.remove();
         const idx = procedimentos.findIndex(p => p._docId === docId);
         if (idx === -1) return;
-        mostrarChecklist(procedimentos[idx], 'concluido', async () => {
+        const fichaEntregue = window.perguntarFichaOpmeEntregue ? await window.perguntarFichaOpmeEntregue(procedimentos[idx]) : 'sim';
+        if (fichaEntregue === 'sim') {
+            mostrarChecklist(procedimentos[idx], 'concluido', async () => {
+                procedimentos[idx].materialRetirado = 'sim';
+                procedimentos[idx].status = 'concluido';
+                procedimentos[idx].retiradaConfirmada = true;
+                procedimentos[idx].dataConfirmacaoRetirada = todayStr();
+                try {
+                    const conn = window._resolverFilial(procedimentos[idx]);
+                    if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
+                    const { setDoc, doc } = conn.fbModules;
+                    await setDoc(doc(conn.db, conn.COLL, docId), procedimentos[idx]);
+                    window.showSyncToast('✅ Material retirado — marcado como concluído!');
+                } catch(e) { console.error(e); alert('❌ ' + e.message); }
+                renderCards(); updateStats(); updateAlerts();
+            }, {blocking:false});
+        } else {
             procedimentos[idx].materialRetirado = 'sim';
-            procedimentos[idx].status = 'concluido';
+            procedimentos[idx].status = 'aguardando_ficha_opme';
+            procedimentos[idx].retiradaConfirmada = true;
+            procedimentos[idx].dataConfirmacaoRetirada = todayStr();
             try {
                 const conn = window._resolverFilial(procedimentos[idx]);
                 if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro.');
                 const { setDoc, doc } = conn.fbModules;
                 await setDoc(doc(conn.db, conn.COLL, docId), procedimentos[idx]);
-                window.showSyncToast('✅ Material retirado — marcado como concluído!');
+                window.showSyncToast('📋 Material retirado — Aguardando entrega da Ficha OPME');
             } catch(e) { console.error(e); alert('❌ ' + e.message); }
             renderCards(); updateStats(); updateAlerts();
-        }, {blocking:false});
+        }
     };
 
     overlay.querySelector('#btnMatNao').onclick = async () => {
@@ -8623,7 +8641,14 @@ async function agendarDataRetirada(docId) {
     if (resposta.retornou === 'nao') {
         proc.status = 'a_retirar';
     } else {
-        await new Promise(resolve => mostrarChecklist(proc, 'concluido', () => { proc.status = 'concluido'; resolve(); }, {blocking:false}));
+        const fichaEntregue = window.perguntarFichaOpmeEntregue ? await window.perguntarFichaOpmeEntregue(proc) : 'sim';
+        if (fichaEntregue === 'sim') {
+            await new Promise(resolve => mostrarChecklist(proc, 'concluido', () => { proc.status = 'concluido'; resolve(); }, {blocking:false}));
+        } else {
+            proc.status = 'aguardando_ficha_opme';
+        }
+        proc.retiradaConfirmada = true;
+        proc.dataConfirmacaoRetirada = todayStr();
     }
     await fbSaveProc(proc);
 }
@@ -8700,10 +8725,18 @@ async function confirmarRetiradaVolumes(docId) {
     document.getElementById('btnSalvarConfColeta').onclick = async () => {
         const data = document.getElementById('inputDataConfColeta').value;
         proc.dataRetirar = data;
-        proc.status = retirou === 'sim' ? 'concluido' : 'a_retirar';
+        if (retirou === 'sim') {
+            const fichaEntregue = window.perguntarFichaOpmeEntregue ? await window.perguntarFichaOpmeEntregue(proc) : 'sim';
+            proc.status = fichaEntregue === 'sim' ? 'concluido' : 'aguardando_ficha_opme';
+            proc.retiradaConfirmada = true;
+            proc.dataConfirmacaoRetirada = todayStr();
+        } else {
+            proc.status = 'a_retirar';
+        }
         try {
             await fbSaveProc(proc);
-            showSyncToast(retirou === 'sim' ? '✅ Coleta concluída!' : '📦 Aguardando retirada');
+            const msgs = { concluido: '✅ Coleta concluída!', aguardando_ficha_opme: '📋 Retirado — Aguardando entrega da Ficha OPME', a_retirar: '📦 Aguardando retirada' };
+            showSyncToast(msgs[proc.status] || '');
             fechar();
         } catch(e) {
             alert('Erro ao salvar: ' + e.message);
