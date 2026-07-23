@@ -10014,7 +10014,24 @@ async function renderAtividade(forcar) {
             hospital: f.hospital || '—',
         }));
 
-    const eventos = [...eventosProc, ...eventosFichas]
+    const todosEventos = [...eventosProc, ...eventosFichas];
+
+    // Resumo por operador: quantas cirurgias, fichas OPME e coletas cada um
+    // lançou — conta em cima de TODOS os eventos, não só dos 200 mais
+    // recentes mostrados na tabela detalhada abaixo.
+    const resumoPorOperador = {};
+    todosEventos.forEach(ev => {
+        const nome = ev.quem || '—';
+        if (!resumoPorOperador[nome]) resumoPorOperador[nome] = { cirurgias: 0, fichas: 0, coletas: 0 };
+        if (ev.tipo === '🏥 Cirurgia') resumoPorOperador[nome].cirurgias++;
+        else if (ev.tipo === '✈️ Coleta') resumoPorOperador[nome].coletas++;
+        else if (ev.tipo === '📋 Ficha OPME') resumoPorOperador[nome].fichas++;
+    });
+    const resumoLinhas = Object.entries(resumoPorOperador)
+        .map(([nome, c]) => ({ nome, ...c, total: c.cirurgias + c.fichas + c.coletas }))
+        .sort((a, b) => b.total - a.total);
+
+    const eventos = todosEventos
         .sort((a, b) => new Date(b.quando) - new Date(a.quando))
         .slice(0, 200);
 
@@ -10023,7 +10040,33 @@ async function renderAtividade(forcar) {
         return;
     }
 
-    el.innerHTML = `
+    const resumoHTML = `
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:16px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead>
+                    <tr style="background:rgba(255,255,255,0.03);">
+                        <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">Operador</th>
+                        <th style="text-align:right;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">🏥 Cirurgias</th>
+                        <th style="text-align:right;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">📋 Fichas OPME</th>
+                        <th style="text-align:right;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">✈️ Coletas</th>
+                        <th style="text-align:right;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${resumoLinhas.map(r => `
+                        <tr style="border-bottom:1px solid var(--border);">
+                            <td style="padding:10px 14px;font-family:var(--mono);font-size:0.75rem;color:var(--accent2);white-space:nowrap;">${r.nome}</td>
+                            <td style="padding:10px 14px;text-align:right;color:var(--text);">${r.cirurgias}</td>
+                            <td style="padding:10px 14px;text-align:right;color:var(--text);">${r.fichas}</td>
+                            <td style="padding:10px 14px;text-align:right;color:var(--text);">${r.coletas}</td>
+                            <td style="padding:10px 14px;text-align:right;font-weight:700;color:var(--text);">${r.total}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>`;
+
+    el.innerHTML = resumoHTML + `
         <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
             <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
                 <thead>
