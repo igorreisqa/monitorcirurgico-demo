@@ -4752,6 +4752,10 @@ html.modo-demo .header-logo-bg{display:none!important}
 html.modo-demo .login-logo-img{display:none!important}
 html.modo-demo .marca-gf-brand{display:none!important}
 html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.55em;font-weight:600;opacity:0.65;text-transform:none;letter-spacing:normal}
+/* Demo: só o botão de demonstração. Produção: só o login normal. */
+html.modo-demo #loginForm .login-group,
+html.modo-demo #loginForm #loginBtn{display:none!important}
+html:not(.modo-demo) #loginBtnDemo{display:none!important}
 .header-text h1{color:#2a9fbf!important;-webkit-text-fill-color:#2a9fbf!important}
 .header-text p{font-size:.82rem!important;letter-spacing:.12em!important;line-height:1.35!important;color:#56a884!important;max-width:560px}
 .header > div:last-child{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:14px!important;flex-wrap:wrap!important}
@@ -4899,7 +4903,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
         </div>
         <div style="display:flex; align-items:center; gap:20px;">
             <button class="btn-gerenciar-usuarios" id="btn-gerenciar-usuarios" onclick="openAdminModal()">👥 Usuários</button>
-            <button class="logout-btn" onclick="doLogout()" id="logoutBtn" style="display:none;">Sair ↩</button>
+            <button class="logout-btn" onclick="window._confirmarSair()" id="logoutBtn" style="display:none;">Sair ↩</button>
             <button id="btn-ativar-som" onclick="ativarSom()">
                 <span class="som-dot"></span>
                 <span id="btn-som-label">Som desativado</span>
@@ -7409,7 +7413,7 @@ function _iniciarSomGeral(procs) {
 }
 function _tocarSomGeral(procs) {
     if (!_somEstaAtivo()) return;
-    const ctx = _getAudioCtx(); if (!ctx) return;
+    const ctx = getAudioCtx(); if (!ctx) return;
     const t = ctx.currentTime;
     // beep suave único — não repetitivo, apenas lembrete
     const o = ctx.createOscillator();
@@ -9236,21 +9240,32 @@ function _resolverNomeOperador(nome, callback) {
     callback(nome);
 }
 
+// Seletor (dropdown) em vez de um botão por nome — evita expor a lista
+// inteira de operadores na tela pra quem estiver por perto olhando.
 window.pedirIdentificacaoComercial = function() {
     return new Promise(resolve => {
         const overlay = document.getElementById('identComercialOverlay');
         const lista = document.getElementById('identComercialNomes');
         if (!overlay || !lista) { resolve(null); return; }
-        lista.innerHTML = _nomesOperadorAtivos().map(nome => {
-            const label = nome;
-            return `<button type="button" class="login-btn" style="margin-top:0;text-transform:none;font-size:0.95rem;" onclick="window._resolverIdentComercial('${nome}')">${label}</button>`;
-        }).join('');
+        const opcoes = _nomesOperadorAtivos();
+        lista.innerHTML =
+            '<select id="selIdentComercial" class="login-input" style="width:100%;">' +
+                '<option value="">Selecione seu nome</option>' +
+                opcoes.map(nome => `<option value="${nome}">${nome}</option>`).join('') +
+            '</select>' +
+            '<button type="button" class="login-btn" style="margin-top:10px;" id="btnConfirmarIdentComercial">Entrar</button>';
         window._resolverIdentComercial = function(nome) {
             if (nome === null) { overlay.classList.add('hidden'); resolve(null); return; }
             _resolverNomeOperador(nome, nomeFinal => {
                 overlay.classList.add('hidden');
                 resolve(nomeFinal);
             });
+        };
+        const btnConfirmar = document.getElementById('btnConfirmarIdentComercial');
+        const selNome = document.getElementById('selIdentComercial');
+        btnConfirmar.onclick = () => {
+            if (!selNome.value) { selNome.focus(); return; }
+            window._resolverIdentComercial(selNome.value);
         };
         overlay.classList.remove('hidden');
     });
@@ -9269,6 +9284,7 @@ function cancelarNomeOp() {
 }
 
 function selecionarNomeOp(nome) {
+    if (!nome) return;
     _resolverNomeOperador(nome, nomeFinal => {
         window._operadorNome = nomeFinal;
         document.getElementById('modalNomeOp').classList.remove('open');
@@ -9281,11 +9297,13 @@ function openModal() {
     if (_precisaNomeOp()) {
         _pendingOpenModal = _doOpenModal;
         const lista = document.getElementById('listaNomeOperador');
-        lista.innerHTML = _nomesOperadorAtivos().map(nome => {
-            const sel = nome === window._operadorNome;
-            const label = nome;
-            return `<button type="button" onclick="selecionarNomeOp('${nome}')" style="padding:10px 14px;border-radius:8px;background:${sel?'rgba(75,180,210,0.12)':'var(--bg3)'};border:1.5px solid ${sel?'var(--accent)':'var(--border)'};color:var(--text);cursor:pointer;font-family:var(--mono);font-size:0.88rem;font-weight:600;text-align:left;transition:all .13s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${sel?'var(--accent)':'var(--border)'}'">${sel?'✓ ':''}${label}</button>`;
-        }).join('');
+        const opcoes = _nomesOperadorAtivos();
+        lista.innerHTML =
+            '<select id="selNomeOperador" class="form-select" style="width:100%;">' +
+                '<option value="">Selecione seu nome</option>' +
+                opcoes.map(nome => `<option value="${nome}" ${nome === window._operadorNome ? 'selected' : ''}>${nome}</option>`).join('') +
+            '</select>' +
+            '<button type="button" onclick="selecionarNomeOp(document.getElementById(\'selNomeOperador\').value)" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-family:var(--mono);font-size:0.88rem;font-weight:700;">Confirmar</button>';
         document.getElementById('modalNomeOp').classList.add('open');
         return;
     }
@@ -11290,6 +11308,7 @@ function _nomeOperadorLembrete() {
 
 function verificarLembreteCobrancaDiario() {
     if (document.getElementById('modalEscolhaCobrar')) return; // já está na tela, não duplica
+    if (typeof _precisaNomeOp === 'function' && _precisaNomeOp()) return; // espera identificar o operador primeiro
 
     const agora = new Date();
     const horaAtual = agora.getHours();
@@ -20929,6 +20948,32 @@ else init();
 (function(){
 'use strict';
 
+// ─── CONFIRMAÇÃO GENÉRICA SIM/NÃO ──────────────────────────────────
+window._confirmarSimNao = function(titulo, mensagem, corAccent){
+    corAccent = corAccent || '#25D366';
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px;';
+        overlay.innerHTML =
+            '<div style="background:var(--surface,#fff);border:1px solid var(--border);border-top:4px solid ' + corAccent + ';border-radius:16px;padding:28px 26px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.35);">' +
+                '<div style="font-family:var(--mono);font-size:0.82rem;font-weight:700;letter-spacing:0.08em;color:' + corAccent + ';text-transform:uppercase;margin-bottom:14px;">' + titulo + '</div>' +
+                '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:0.92rem;color:var(--text,#111);margin-bottom:20px;">' + mensagem + '</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button id="_csnSim" style="flex:1;padding:12px;border-radius:10px;border:2px solid ' + corAccent + ';background:' + corAccent + ';color:#fff;font-family:var(--mono);font-size:0.85rem;font-weight:700;cursor:pointer;">Sim</button>' +
+                    '<button id="_csnNao" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-dim,#6b7280);font-family:var(--mono);font-size:0.85rem;font-weight:700;cursor:pointer;">Não</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_csnSim').onclick = () => { overlay.remove(); resolve(true); };
+        overlay.querySelector('#_csnNao').onclick = () => { overlay.remove(); resolve(false); };
+    });
+};
+
+window._confirmarSair = async function(){
+    const ok = await window._confirmarSimNao('🚪 Sair', 'Tem certeza que quer sair do sistema?', '#d94f4f');
+    if (ok) doLogout();
+};
+
 // ─── 1. BOTÃO NOTIFICAÇÕES ────────────────────────────────────────
 function injetarBotaoNotif(){
     if(document.getElementById('btn-notificacoes')) return;
@@ -20939,6 +20984,8 @@ function injetarBotaoNotif(){
     btn.innerHTML='<span>🔔</span><span id="notif-lbl">Notif.</span>';
     btn.onclick=async()=>{
         if(!('Notification' in window)){alert('Navegador não suporta notificações');return;}
+        const ok = await window._confirmarSimNao('🔔 Notificações', 'Ativar notificações do navegador para este sistema?');
+        if (!ok) return;
         const perm=await Notification.requestPermission();
         if(perm==='granted') window.showSyncToast&&window.showSyncToast('🔔 Notificações ativadas!');
         _atualizarBotaoNotif();
@@ -21232,7 +21279,7 @@ function stopReagVencidoSound() {
 }
 function _beepReagVencido() {
     if (typeof _somEstaAtivo === 'function' && !_somEstaAtivo()) return;
-    const ctx = typeof _getAudioCtx === 'function' ? _getAudioCtx() : null;
+    const ctx = typeof getAudioCtx === 'function' ? getAudioCtx() : null;
     if (!ctx) return;
     const t = ctx.currentTime;
     [0, 0.22].forEach(off => {
