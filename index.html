@@ -9999,7 +9999,8 @@ async function renderAtividade(forcar) {
             // pra quem usa a conta compartilhada), não quem de fato lançou.
             quem: p.operadorNome || quem(p.cadastradoPor),
             tipo: (typeof _ehColeta === 'function' && _ehColeta(p)) ? '✈️ Coleta' : '🏥 Cirurgia',
-            desc: (p.paciente || p.hospital || '—') + (p.hospital ? ' · ' + p.hospital : ''),
+            paciente: p.paciente || '—',
+            hospital: p.hospital || '—',
         }));
 
     const eventosFichas = (_atividadeFichas || [])
@@ -10008,7 +10009,8 @@ async function renderAtividade(forcar) {
             quando: f.criadoEm,
             quem: f.operadorNome || quem(f.criadoPor),
             tipo: '📋 Ficha OPME',
-            desc: (f.paciente || f.procedimento || '—') + (f.hospital ? ' · ' + f.hospital : ''),
+            paciente: f.paciente || f.procedimento || '—',
+            hospital: f.hospital || '—',
         }));
 
     const eventos = [...eventosProc, ...eventosFichas]
@@ -10027,7 +10029,8 @@ async function renderAtividade(forcar) {
                     <tr style="background:rgba(255,255,255,0.03);">
                         <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">Data/Hora</th>
                         <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">Tipo</th>
-                        <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border);">Descrição</th>
+                        <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border);">Paciente</th>
+                        <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border);">Hospital</th>
                         <th style="text-align:left;padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;border-bottom:1px solid var(--border);">Operador</th>
                     </tr>
                 </thead>
@@ -10036,7 +10039,8 @@ async function renderAtividade(forcar) {
                         <tr style="border-bottom:1px solid var(--border);">
                             <td style="padding:10px 14px;font-family:var(--mono);font-size:0.7rem;color:var(--text-dim);white-space:nowrap;">${fmt(ev.quando)}</td>
                             <td style="padding:10px 14px;white-space:nowrap;">${ev.tipo}</td>
-                            <td style="padding:10px 14px;color:var(--text);">${ev.desc}</td>
+                            <td style="padding:10px 14px;color:var(--text);">${ev.paciente}</td>
+                            <td style="padding:10px 14px;color:var(--text);">${ev.hospital}</td>
                             <td style="padding:10px 14px;font-family:var(--mono);font-size:0.75rem;color:var(--accent2);white-space:nowrap;">${ev.quem}</td>
                         </tr>
                     `).join('')}
