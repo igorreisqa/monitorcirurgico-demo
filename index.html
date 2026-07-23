@@ -11261,18 +11261,33 @@ function verificarLembreteRetirada() {
 setTimeout(verificarLembreteRetirada, 5000);
 setTimeout(atualizarBannerPendencias, 5500);
 
-// ─── LEMBRETE DIÁRIO — COBRAR VIA WHATSAPP (número fixo por unidade) ───
-// Uma vez por dia, se tiver pendência de Aguardando Retirada ou Aguardando
+// ─── LEMBRETE 2X POR DIA (08h e 14h) — COBRAR VIA WHATSAPP (número fixo por unidade) ───
+// Às 8h e às 14h, se tiver pendência de Aguardando Retirada ou Aguardando
 // Ficha OPME, sugere mandar a cobrança direto pro WhatsApp do responsável de
 // cada unidade — número fixo, não é o contato escolhido na hora. Em
 // Consolidado, manda uma mensagem separada pra cada cidade (só com os itens
 // daquela cidade), já que os dois times cobram coisas diferentes.
+// Cada operador identificado (window._operadorNome, conta comercial@
+// compartilhada) recebe seu próprio lembrete em cada horário — um operador
+// já ter visto não impede o lembrete de aparecer pra outro que loga depois.
 const NUMERO_COBRANCA_CGR = '556784717799'; // 67 8471-7799 — Campo Grande
 const NUMERO_COBRANCA_CBA = '556592291454'; // 65 9229-1454 — Cuiabá
+const HORARIOS_LEMBRETE_COBRANCA = [8, 14];
+
+function _nomeOperadorLembrete() {
+    return window._operadorNome || (window._currentUser && (window._currentUser.nome || window._currentUser.email)) || 'geral';
+}
 
 function verificarLembreteCobrancaDiario() {
+    const agora = new Date();
+    const horaAtual = agora.getHours();
     const hoje = todayStr();
-    const chave = window._brKey('lembrete_cobranca_diaria_' + hoje);
+    const operador = _nomeOperadorLembrete();
+
+    const checkpoint = HORARIOS_LEMBRETE_COBRANCA.filter(h => horaAtual >= h).pop();
+    if (checkpoint === undefined) return; // ainda não chegou nem nas 8h
+
+    const chave = window._brKey('lembrete_cobranca_' + hoje + '_' + operador + '_' + checkpoint + 'h');
     if (localStorage.getItem(chave)) return;
 
     const pendRetirada = procedimentos.filter(p => !_ehColeta(p) && p.status === 'a_retirar').length;
@@ -11299,89 +11314,33 @@ function verificarLembreteCobrancaDiario() {
     document.body.appendChild(overlay);
     const fechar = () => overlay.remove();
     overlay.querySelector('#btnLembreteDepois').onclick = fechar;
-    overlay.querySelector('#btnLembreteCobrarAgora').onclick = async () => {
+    overlay.querySelector('#btnLembreteCobrarAgora').onclick = () => {
         fechar();
-        let filtro;
-        if (pendRetirada > 0 && pendFicha > 0) filtro = undefined;
-        else if (pendFicha > 0) filtro = 'ficha';
-        else filtro = 'retirada';
-
-        await verificarPromocaoRetirada();
         if (window._gfMode === 'consolidado') {
-            _abrirWhatsAppNumeroFilial(NUMERO_COBRANCA_CGR, 'cgr', filtro);
-            _abrirWhatsAppNumeroFilial(NUMERO_COBRANCA_CBA, 'cba', filtro);
+            _abrirLembreteSimplesFilial(NUMERO_COBRANCA_CGR, 'cgr');
+            _abrirLembreteSimplesFilial(NUMERO_COBRANCA_CBA, 'cba');
         } else {
             const numero = window._gfMode === 'cba' ? NUMERO_COBRANCA_CBA : NUMERO_COBRANCA_CGR;
-            _abrirWhatsAppNumeroFilial(numero, null, filtro);
+            _abrirLembreteSimplesFilial(numero, null);
         }
     };
 }
 
-// Monta a mesma mensagem de exportarWhatsApp, mas manda direto pro número fixo
-// da unidade (opcionalmente filtrando só os itens de uma filial, em Consolidado).
-function _abrirWhatsAppNumeroFilial(numero, filialFiltro, filtro) {
-    var fmt = function(d) {
-        if (!d) return '—';
-        var s = String(d);
-        var dt = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s);
-        return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR');
-    };
+// Texto simples cobrando o operador a providenciar a cobrança das pendências
+// do dia — não é a lista detalhada (essa quem quiser manda pelo botão normal
+// de "Cobrar via WhatsApp"), é só um empurrão pra não esquecer.
+function _abrirLembreteSimplesFilial(numero, filialFiltro) {
     var porFilial = function(p) { return !filialFiltro || p._filialOrigem === filialFiltro; };
-    var cirurgias = filtro === 'ficha' ? [] : procedimentos.filter(p => !_ehColeta(p) && !p.isColeta && p.status === 'a_retirar' && porFilial(p));
-    var fichasPendentes = filtro === 'retirada' ? [] : procedimentos.filter(p => !_ehColeta(p) && !p.isColeta && p.status === 'aguardando_ficha_opme' && porFilial(p));
-    if (cirurgias.length === 0 && fichasPendentes.length === 0) return;
+    var qtdRetirada = procedimentos.filter(p => !_ehColeta(p) && p.status === 'a_retirar' && porFilial(p)).length;
+    var qtdFicha = procedimentos.filter(p => !_ehColeta(p) && p.status === 'aguardando_ficha_opme' && porFilial(p)).length;
+    if (qtdRetirada === 0 && qtdFicha === 0) return;
 
-    var linhas = ['Olá! ', 'Segue as pendências do *Monitor Cirúrgico*:'];
-    if (cirurgias.length > 0) {
-        linhas.push('');
-        linhas.push('*AGUARDANDO RETIRADA* (material ainda não devolvido ao estoque)');
-        cirurgias.forEach(p => {
-            linhas.push('');
-            linhas.push('---');
-            linhas.push('*Paciente:* ' + (p.paciente || '—'));
-            linhas.push('*Hospital:* ' + (p.hospital || '—'));
-            linhas.push('*Nº da Nota Fiscal:* ' + (p.nf || '—'));
-            linhas.push('*Vendedor:* ' + (p.vendedor || '—'));
-            linhas.push('*Data de Cirurgia:* ' + fmt(p.data));
-            linhas.push('*Data de retirada:* ' + fmt(p.retirada));
-        });
-        linhas.push('');
-        linhas.push('---');
-        linhas.push('Total: *' + cirurgias.length + ' pendência(s) de retirada*');
-        linhas.push('');
-        linhas.push('Por favor, providencie a devolução o quanto antes para garantir a disponibilidade dos produtos no estoque.');
-        linhas.push('Qualquer dúvida, é só me chamar! 🙏');
-    }
-    if (fichasPendentes.length > 0) {
-        linhas.push('');
-        linhas.push('*AGUARDANDO FICHA OPME* (material já retirado, falta entregar a ficha ao estoque)');
-        fichasPendentes.forEach(p => {
-            linhas.push('');
-            linhas.push('---');
-            linhas.push('*Paciente:* ' + (p.paciente || '—'));
-            linhas.push('*Hospital:* ' + (p.hospital || '—'));
-            linhas.push('*Nº da Nota Fiscal:* ' + (p.nf || '—'));
-            linhas.push('*Vendedor:* ' + (p.vendedor || '—'));
-            linhas.push('*Data de Cirurgia:* ' + fmt(p.data));
-            linhas.push('*Data de devolução:* ' + (p.dataConfirmacaoRetirada ? fmt(p.dataConfirmacaoRetirada) : '(quando a devolução ocorrer)'));
-        });
-        linhas.push('');
-        linhas.push('---');
-        linhas.push('Total: *' + fichasPendentes.length + ' ficha(s) OPME pendente(s)*');
-        linhas.push('');
-        linhas.push('Poderia providenciar a entrega da ficha do OPME o quanto antes? É pra garantir a laudação com o convênio e o faturamento com o cliente no prazo.');
-    }
-    linhas.push('');
-    linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
-
-    const textoLimpo = linhas.join('\n')
-        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]️?(‍[\p{Emoji_Presentation}\p{Extended_Pictographic}]️?)*/gu, '')
-        .replace(/[ \t]+/g, ' ')
-        .replace(/^ /gm, '');
-    window.open('https://api.whatsapp.com/send?phone=' + numero + '&text=' + encodeURIComponent(textoLimpo), '_blank');
+    var texto = 'Olá! Lembrete diário: hoje tem ' + qtdRetirada + ' pendência(s) de Aguardando Retirada e ' + qtdFicha + ' ficha(s) OPME pendente(s). Por favor, providencie a cobrança o quanto antes. Qualquer dúvida, me chama!';
+    window.open('https://api.whatsapp.com/send?phone=' + numero + '&text=' + encodeURIComponent(texto), '_blank');
 }
 
 setTimeout(verificarLembreteCobrancaDiario, 6000);
+setInterval(verificarLembreteCobrancaDiario, 5 * 60 * 1000); // rechecagem a cada 5min, pra pegar 8h/14h com a aba já aberta
 
 // ─── INIT ───
 // Dados carregados pelo onSnapshot do Supabase acima
