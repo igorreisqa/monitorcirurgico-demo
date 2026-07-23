@@ -9943,7 +9943,7 @@ function _conexoesAtividade() {
             window._gfConnections.cba ? { code: 'cba', db: window._gfConnections.cba.db, fbModules: window._gfConnections.cba.fbModules } : null,
         ].filter(Boolean);
     }
-    return [{ code: ACTIVE_BRANCH_CODE, db: window._fbDb, fbModules: window._fbModules }];
+    return [{ code: window._activeBranch, db: window._fbDb, fbModules: window._fbModules }];
 }
 
 async function _carregarUsuariosAtividade() {
