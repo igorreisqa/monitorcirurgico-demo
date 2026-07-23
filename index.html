@@ -5146,7 +5146,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
             </select>
         </div>
         <button class="btn-export" onclick="openExportModal()">⬇ Exportar Excel</button>
-        <button onclick="exportarWhatsApp()" style="padding:8px 18px;border-radius:10px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;font-family:var(--mono);font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;cursor:pointer;">💬 Cobrar via WhatsApp</button>
+        <button onclick="abrirCobrarWhatsApp()" style="padding:8px 18px;border-radius:10px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;font-family:var(--mono);font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;cursor:pointer;">💬 Cobrar via WhatsApp</button>
         <button id="btn-nova-cirurgia" class="btn-add" onclick="openModal()" style="display:none;"></button>
         <button id="btn-nova-coleta" class="btn-add" onclick="openModalVolumes()" style="display:none;"></button>
     </div>
@@ -7473,6 +7473,34 @@ function _agruparPorFilialWhatsApp(lista) {
     });
     return resultado;
 }
+
+// ─── ESCOLHA DO QUE COBRAR — botão principal da barra ───
+// Pergunta se a cobrança deve sair só de Aguardando Retirada, só de
+// Aguardando Ficha OPME, ou os dois juntos, antes de montar a mensagem.
+window.abrirCobrarWhatsApp = function() {
+    const antigo = document.getElementById('modalEscolhaCobrar');
+    if (antigo) antigo.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'modalEscolhaCobrar';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px;';
+    overlay.innerHTML =
+        '<div style="background:var(--surface,#fff);border:1px solid var(--border);border-top:4px solid #25D366;border-radius:16px;padding:28px 26px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.35);">' +
+            '<div style="font-family:var(--mono);font-size:0.82rem;font-weight:700;letter-spacing:0.08em;color:#25D366;text-transform:uppercase;margin-bottom:18px;">💬 Cobrar via WhatsApp</div>' +
+            '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:0.92rem;color:var(--text,#111);margin-bottom:18px;">O que você quer cobrar?</div>' +
+            '<div style="display:flex;flex-direction:column;gap:10px;">' +
+                '<button id="btnCobrarSoRetirada" style="padding:13px;border-radius:10px;border:2px solid #f97316;background:transparent;color:#f97316;font-family:var(--mono);font-size:0.85rem;font-weight:700;cursor:pointer;">📦 Só Aguardando Retirada</button>' +
+                '<button id="btnCobrarSoFicha" style="padding:13px;border-radius:10px;border:2px solid #a855f7;background:transparent;color:#a855f7;font-family:var(--mono);font-size:0.85rem;font-weight:700;cursor:pointer;">📋 Só Ficha OPME</button>' +
+                '<button id="btnCobrarAmbos" style="padding:13px;border-radius:10px;border:2px solid #25D366;background:#25D366;color:#fff;font-family:var(--mono);font-size:0.85rem;font-weight:700;cursor:pointer;">📦📋 Os Dois Juntos</button>' +
+                '<button id="btnCobrarCancelar" style="padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-dim,#6b7280);font-family:var(--mono);font-size:0.78rem;font-weight:700;cursor:pointer;">Cancelar</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    const fechar = () => overlay.remove();
+    overlay.querySelector('#btnCobrarSoRetirada').onclick = () => { fechar(); exportarWhatsApp('retirada'); };
+    overlay.querySelector('#btnCobrarSoFicha').onclick = () => { fechar(); exportarWhatsApp('ficha'); };
+    overlay.querySelector('#btnCobrarAmbos').onclick = () => { fechar(); exportarWhatsApp(); };
+    overlay.querySelector('#btnCobrarCancelar').onclick = fechar;
+};
 
 async function exportarWhatsApp(filtro) {
     if (!(await confirmarFilialAntesDeCobrar())) return;
@@ -20952,7 +20980,7 @@ window.updateStats=function(){
 };
 
 function injetarBotoesControles(){
-    const ref=document.querySelector('[onclick="exportarWhatsApp()"]'); if(!ref) return;
+    const ref=document.querySelector('[onclick="abrirCobrarWhatsApp()"]'); if(!ref) return;
     if(!document.getElementById('btn-resumo-dia')){const b=document.createElement('button');b.id='btn-resumo-dia';b.textContent='📊 Resumo do Dia';b.style.cssText='padding:8px 18px;border-radius:10px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.4);color:#6366f1;font-family:var(--mono);font-size:0.72rem;font-weight:700;cursor:pointer;';b.onclick=window.abrirResumoDia;ref.insertAdjacentElement('beforebegin',b);}
     if(!document.getElementById('btn-email-rel')){const b=document.createElement('button');b.id='btn-email-rel';b.textContent='📧 E-mail';b.style.cssText='padding:8px 18px;border-radius:10px;background:rgba(75,180,210,.12);border:1px solid rgba(75,180,210,.4);color:#4bb4d2;font-family:var(--mono);font-size:0.72rem;font-weight:700;cursor:pointer;';b.onclick=window.enviarRelatorioEmail;ref.insertAdjacentElement('beforebegin',b);}
 }
