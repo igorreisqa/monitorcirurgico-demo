@@ -5,20 +5,15 @@
 (function(){
   var p = new URLSearchParams(location.search);
   var f = p.get('filial');
-  if (f === 'cgr' || f === 'cba') localStorage.setItem('gf_branch_opme_pref', f);
+  if (f === 'cgr' || f === 'cba' || f === 'consolidado') localStorage.setItem('gf_branch', f);
   if (p.get('demo') === '1' || location.hostname === 'monitorcirurgico-demo.vercel.app') document.documentElement.classList.add('modo-demo');
 
-  var principal = localStorage.getItem('gf_branch');
-  var pref      = localStorage.getItem('gf_branch_opme_pref');
-  var resolved = (principal === 'cgr' || principal === 'cba') ? principal
-               : (pref === 'cgr' || pref === 'cba') ? pref
-               : null;
-
-  if (resolved) { window._opmeBranch = resolved; }
+  var saved = localStorage.getItem('gf_branch');
+  if (saved === 'cgr' || saved === 'cba' || saved === 'consolidado') { window._opmeBranch = saved; }
   else { document.documentElement.classList.add('gf-need-branch-picker'); }
 
   window._escolherFilialOpme = function(code) {
-    localStorage.setItem('gf_branch_opme_pref', code);
+    localStorage.setItem('gf_branch', code);
     location.reload();
   };
 })();
@@ -300,6 +295,7 @@ html.gf-need-branch-picker .branch-picker-overlay{display:flex!important}
     <div class="login-sub">Selecione a filial pra abrir as Fichas OPME</div>
     <button type="button" class="login-btn branch-btn" onclick="window._escolherFilialOpme('cgr')">Campo Grande</button>
     <button type="button" class="login-btn branch-btn" style="margin-top:10px;" onclick="window._escolherFilialOpme('cba')">Cuiabá</button>
+    <button type="button" class="login-btn branch-btn" style="margin-top:10px;background:linear-gradient(135deg,#6366f1,#818cf8);" onclick="window._escolherFilialOpme('consolidado')">Consolidado (as duas juntas)</button>
   </div>
 </div>
 
@@ -348,7 +344,7 @@ html.gf-need-branch-picker .branch-picker-overlay{display:flex!important}
       <div class="user-chip">
         <div class="user-avatar" id="user-av">?</div>
         <div class="user-info"><strong id="user-nm">—</strong><span id="sidebar-filial-label">Campo Grande · MS</span></div>
-        <span class="ftag">CG</span>
+        <span class="ftag" id="sidebar-ftag">CG</span>
       </div>
       <button onclick="doLogout()" style="width:100%;margin-top:6px;padding:6px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:0.72rem;cursor:pointer;font-family:var(--sans);transition:all 0.13s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">Sair da conta</button>
     </div>
@@ -433,7 +429,14 @@ html.gf-need-branch-picker .branch-picker-overlay{display:flex!important}
       </div>
       <div class="frow">
         <div class="fg"><label class="flbl">Nº Pedido de Venda</label><input class="finput" id="f-pedido" placeholder="Ex: 4795"></div>
-        <div class="fg"></div>
+        <div class="fg" id="g-filial-opme" style="display:none">
+          <label class="flbl">Filial *</label>
+          <select class="finput" id="f-filial-opme">
+            <option value="">Selecione a unidade</option>
+            <option value="cgr">Campo Grande</option>
+            <option value="cba">Cuiabá</option>
+          </select>
+        </div>
       </div>
       <div class="frow">
         <div class="fg"><label class="flbl">Data da Cirurgia</label><input class="finput" type="date" id="f-data"></div>
@@ -485,27 +488,65 @@ const BRANCHES = {
   cgr: { url: "https://rqzqetfoxiutabsooqqn.supabase.co", key: "sb_publishable_P3EggMdsxQUoKnX_pLMaRQ_ZrGEYpIP", label: "Campo Grande", cityLabel: "Campo Grande, MS" },
   cba: { url: "https://cyztucqhfotqhauavepu.supabase.co", key: "sb_publishable_LnJYIlIDvTF6l4MMQwZ-Kg_uCBXnZRM", label: "Cuiabá",       cityLabel: "Cuiabá, MT" },
 };
-const ACTIVE_BRANCH_CODE = window._opmeBranch; // resolvido no <head>, sempre 'cgr' ou 'cba' aqui
-const BR = BRANCHES[ACTIVE_BRANCH_CODE];
-
-document.title = 'Fichas OPME · GF Medical · ' + BR.label;
-const _loginFilialBadge = document.getElementById('login-filial-badge');
-if (_loginFilialBadge) _loginFilialBadge.textContent = '🟢 Filial ' + BR.cityLabel;
-const _sidebarFilialLabel = document.getElementById('sidebar-filial-label');
-if (_sidebarFilialLabel) _sidebarFilialLabel.textContent = BR.cityLabel;
-
 const COLL = 'fichas_opme';
-const FILIAL = ACTIVE_BRANCH_CODE.toUpperCase();
 const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1' || document.documentElement.classList.contains('modo-demo');
-const supabase = createClient(BR.url, BR.key, {
-  auth: { storageKey: (_isDemoUrl ? 'sb-demo-' : 'sb-') + ACTIVE_BRANCH_CODE + '-auth' }
-});
+
+const _savedBranch = window._opmeBranch; // resolvido no <head>: 'cgr' | 'cba' | 'consolidado'
+const IS_CONSOLIDADO = _savedBranch === 'consolidado';
+const ACTIVE_BRANCH_CODE = (_savedBranch === 'cba') ? 'cba' : 'cgr'; // "principal": branding/login/demo
+const BR = BRANCHES[ACTIVE_BRANCH_CODE];
+const FILIAL = ACTIVE_BRANCH_CODE.toUpperCase();
+window._gfModeOpme = IS_CONSOLIDADO ? 'consolidado' : ACTIVE_BRANCH_CODE;
+
+document.title = 'Fichas OPME · GF Medical · ' + (IS_CONSOLIDADO ? 'Consolidado' : BR.label);
+const _loginFilialBadge = document.getElementById('login-filial-badge');
+if (_loginFilialBadge) _loginFilialBadge.textContent = IS_CONSOLIDADO ? '🟢 Consolidado (Campo Grande + Cuiabá)' : '🟢 Filial ' + BR.cityLabel;
+const _sidebarFilialLabel = document.getElementById('sidebar-filial-label');
+if (_sidebarFilialLabel) _sidebarFilialLabel.textContent = IS_CONSOLIDADO ? 'Consolidado' : BR.cityLabel;
+const _sidebarFtag = document.getElementById('sidebar-ftag');
+if (_sidebarFtag) _sidebarFtag.textContent = IS_CONSOLIDADO ? 'CONS' : (ACTIVE_BRANCH_CODE === 'cba' ? 'CBA' : 'CG');
+
+// Cada filial é um projeto Supabase totalmente separado — trocar de filial
+// exige recarregar a página (window._escolherFilialOpme no <head>), não dá
+// pra trocar o client "a quente" com segurança. Fora do Consolidado, só a
+// conexão ativa é criada (sem mudança de comportamento pro uso normal).
+function _criarClienteFilialOpme(code) {
+  const cfg = BRANCHES[code];
+  return createClient(cfg.url, cfg.key, {
+    auth: { storageKey: (_isDemoUrl ? 'sb-demo-' : 'sb-') + code + '-auth' }
+  });
+}
+const supabaseCgr = (ACTIVE_BRANCH_CODE === 'cgr' || IS_CONSOLIDADO) ? _criarClienteFilialOpme('cgr') : null;
+const supabaseCba = (ACTIVE_BRANCH_CODE === 'cba' || IS_CONSOLIDADO) ? _criarClienteFilialOpme('cba') : null;
+const supabase = ACTIVE_BRANCH_CODE === 'cba' ? supabaseCba : supabaseCgr;
 const auth = supabase.auth;
 const db   = supabase; // mantido como "db" só para minimizar diff no resto do arquivo
-const { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, getDoc } = createFirestoreShim(supabase);
-const storage = supabase.storage;
-const { ref, uploadBytes, getDownloadURL } = createStorageShim(supabase, 'opme');
+
+const fbModulesCgr = supabaseCgr ? createFirestoreShim(supabaseCgr) : null;
+const fbModulesCba = supabaseCba ? createFirestoreShim(supabaseCba) : null;
+const storageModulesCgr = supabaseCgr ? createStorageShim(supabaseCgr, 'opme') : null;
+const storageModulesCba = supabaseCba ? createStorageShim(supabaseCba, 'opme') : null;
+const { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, getDoc } =
+  ACTIVE_BRANCH_CODE === 'cba' ? fbModulesCba : fbModulesCgr;
 let _currentUser = null;
+
+// Registro de conexões + resolvedor central de escrita — toda escrita
+// (criar/editar/excluir ficha, upload de anexo) passa por window._resolverFilial
+// e nunca "chuta" uma filial: se não resolver, bloqueia com alerta.
+window._gfConnections = {
+  cgr: supabaseCgr ? { db: supabaseCgr, COLL, fbModules: fbModulesCgr, storageModules: storageModulesCgr, auth: supabaseCgr.auth, currentUserId: null } : null,
+  cba: supabaseCba ? { db: supabaseCba, COLL, fbModules: fbModulesCba, storageModules: storageModulesCba, auth: supabaseCba.auth, currentUserId: null } : null,
+};
+window._resolverFilial = function(ficha) {
+  if (!IS_CONSOLIDADO) return window._gfConnections[ACTIVE_BRANCH_CODE];
+  const code = ficha && ficha._filialOrigem;
+  if (code !== 'cgr' && code !== 'cba') return null;
+  return window._gfConnections[code] || null;
+};
+window._uidParaFilial = function(code) {
+  const conn = window._gfConnections[code];
+  return (conn && conn.currentUserId) || null;
+};
 
 if (typeof pdfjsLib !== 'undefined')
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -565,14 +606,33 @@ function verificarLembreteEmailOpme() {
 setInterval(verificarLembreteEmailOpme, 60000);
 setTimeout(verificarLembreteEmailOpme, 5000);
 
+// Garante que exista uma linha em 'usuarios' pro usuário logado NA FILIAL
+// INDICADA — sem isso, uma conta nova (sem linha ainda) cai na armadilha
+// "ovo e galinha" da política de RLS (precisa já ser admin pra poder criar
+// a própria primeira linha) e qualquer escrita que dependa de criadoPor/FK
+// quebra. Corrige isso tanto pra conexão principal quanto pra secundária.
+async function _sincronizarPerfilFilial(code, user) {
+  const conn = window._gfConnections[code];
+  if (!conn || !user) return;
+  const { doc: docFn, getDoc: gd, setDoc: sd } = conn.fbModules;
+  try {
+    const snap = await gd(docFn(conn.db, 'usuarios', user.id));
+    if (!snap.exists()) {
+      await sd(docFn(conn.db, 'usuarios', user.id), { email: (user.email||'').toLowerCase(), nome: user.email, role: 'agendador' });
+    }
+  } catch (e) { console.warn('[Consolidado] Falha ao sincronizar perfil em ' + code + ':', e.message); }
+}
+
 auth.onAuthStateChange((_event, session) => {
   const u = session?.user || null;
   _currentUser = u ? { uid: u.id, email: u.email } : null;
   const isDemo = !!u && (u.email||'').toLowerCase() === DEMO_EMAIL;
   window._isDemoUser = isDemo;
   document.documentElement.classList.toggle('modo-demo', isDemo);
-  if (isDemo) document.title = document.title.replace(/\s*·\s*GF Medical/i, '').replace(new RegExp('\\s*·\\s*' + BR.label, 'i'), '');
+  if (isDemo) document.title = document.title.replace(/\s*·\s*GF Medical/i, '').replace(/\s*·\s*(Consolidado|Campo Grande|Cuiabá)/i, '');
   if (u) {
+    if (window._gfConnections[ACTIVE_BRANCH_CODE]) window._gfConnections[ACTIVE_BRANCH_CODE].currentUserId = u.id;
+    _sincronizarPerfilFilial(ACTIVE_BRANCH_CODE, u);
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-root').style.display = 'flex';
     const nome = u.email || '';
@@ -598,19 +658,50 @@ auth.onAuthStateChange((_event, session) => {
   }
 });
 
+// CBA só tem sessão própria no modo Consolidado (é a conexão "secundária" —
+// a primária já é tratada pelo auth.onAuthStateChange principal, acima).
+// Cobre tanto sessão restaurada (visita de volta já logada) quanto login
+// novo feito dentro do doLogin().
+if (IS_CONSOLIDADO && window._gfConnections.cba && ACTIVE_BRANCH_CODE !== 'cba') {
+  window._gfConnections.cba.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      window._gfConnections.cba.currentUserId = session.user.id;
+      _sincronizarPerfilFilial('cba', session.user);
+      window._iniciarAssinaturaFilial('cba');
+    }
+  });
+}
+
 window.doLogin = async () => {
   const email = document.getElementById('l-email').value.trim();
   const senha = document.getElementById('l-senha').value;
   const er = document.getElementById('l-err');
   er.classList.remove('show');
   const { error } = await auth.signInWithPassword({ email, password: senha });
-  if (error) er.classList.add('show');
+  if (error) { er.classList.add('show'); return; }
+  // Login duplo no Consolidado: tenta a mesma credencial na conexão
+  // secundária também — se falhar, segue só com a principal;
+  // window._resolverFilial vai travar (sem escrever nada) qualquer
+  // tentativa de mexer numa ficha de Cuiabá até essa sessão autenticar lá.
+  if (IS_CONSOLIDADO && window._gfConnections.cba && ACTIVE_BRANCH_CODE !== 'cba') {
+    try {
+      const { data: dataCba, error: errCba } = await window._gfConnections.cba.auth.signInWithPassword({ email, password: senha });
+      window._consolidadoOpmeCbaOk = !errCba;
+      if (errCba) console.warn('[Consolidado] Não autenticou em Cuiabá:', errCba.message);
+      else if (dataCba?.user) {
+        window._gfConnections.cba.currentUserId = dataCba.user.id;
+        await _sincronizarPerfilFilial('cba', dataCba.user);
+      }
+    } catch (e2) {
+      window._consolidadoOpmeCbaOk = false;
+      console.warn('[Consolidado] Não autenticou em Cuiabá:', e2.message);
+    }
+  }
 };
 
 window.doLogout = () => auth.signOut();
 
 // FIRESTORE
-let _unsubFichas = null;
 // Mascaramento do demo: mesmo localStorage/chaves do Monitor Cirúrgico
 // (index.html), então o mesmo hospital/médico real vira o mesmo rótulo
 // demo nas duas páginas.
@@ -645,35 +736,62 @@ function mascararFichasDemo(lista) {
   return lista;
 }
 
+// Guarda os dados de cada filial separados, e só combina os dois na hora de
+// aplicar em `fichas` — assim uma atualização vinda de uma filial nunca apaga
+// o que já tinha sido carregado da outra.
+const _porFilial = { cgr: [], cba: [] };
+function _fichasCombinadas() {
+  return IS_CONSOLIDADO ? [..._porFilial.cgr, ..._porFilial.cba] : (_porFilial[ACTIVE_BRANCH_CODE] || []);
+}
+function _processarSnapshotFichas(branchCode, snap) {
+  const dados = mascararFichasDemo(snap.docs.map(d => ({ _id: d.id, _filialOrigem: branchCode, ...d.data() })));
+  _porFilial[branchCode] = dados;
+  fichas = _fichasCombinadas();
+  atualizarBadges(); renderAtivo();
+}
+
+// Assina os dados de uma filial só depois de confirmar que aquela conexão
+// está autenticada — assinar antes disso faz o select() inicial do
+// onSnapshot rodar sem sessão, o RLS bloqueia e devolve vazio, e como essa
+// carga inicial só acontece uma vez, os dados nunca mais aparecem sozinhos
+// (mesma race condition já corrigida no Monitor Cirúrgico).
+window._iniciarAssinaturaFilial = function(code) {
+  if (window['_subAtivaOpme_' + code]) return;
+  const conn = window._gfConnections[code];
+  if (!conn) return;
+  window['_subAtivaOpme_' + code] = true;
+  try {
+    const { collection: col, query: q, orderBy: ob, onSnapshot: snap } = conn.fbModules;
+    snap(q(col(conn.db, COLL), ob('criadoEm', 'desc')), s => _processarSnapshotFichas(code, s), () => {
+      snap(col(conn.db, COLL), s => _processarSnapshotFichas(code, s));
+    });
+  } catch (e) {
+    window['_subAtivaOpme_' + code] = false;
+    console.warn('[onSnapshot] Falha ao assinar ' + code + ':', e);
+  }
+};
+
 function carregarFichas() {
-  if (_unsubFichas) { _unsubFichas(); _unsubFichas = null; }
   // Conta demo: carrega uma vez só (sem ficar escutando em tempo real) —
   // assim, fichas criadas/editadas/excluídas localmente pelo recrutador
   // (modo sandbox) não somem quando o snapshot original é substituído.
+  // Em Consolidado, o demo usa só a conexão principal (mesma simplificação
+  // já feita no Monitor Cirúrgico).
   if (window._isDemoUser) {
     getDocs(query(collection(db, COLL), orderBy('criadoEm','desc'))).then(snap => {
-      fichas = mascararFichasDemo(snap.docs.map(d => ({_id:d.id, ...d.data()})));
+      _porFilial[ACTIVE_BRANCH_CODE] = mascararFichasDemo(snap.docs.map(d => ({_id:d.id, _filialOrigem: ACTIVE_BRANCH_CODE, ...d.data()})));
+      fichas = _fichasCombinadas();
       atualizarBadges(); renderAtivo();
     }).catch(() => {
       getDocs(collection(db, COLL)).then(snap => {
-        fichas = mascararFichasDemo(snap.docs.map(d => ({_id:d.id, ...d.data()})));
+        _porFilial[ACTIVE_BRANCH_CODE] = mascararFichasDemo(snap.docs.map(d => ({_id:d.id, _filialOrigem: ACTIVE_BRANCH_CODE, ...d.data()})));
+        fichas = _fichasCombinadas();
         atualizarBadges(); renderAtivo();
       });
     });
     return;
   }
-  try {
-    const q = query(collection(db, COLL), orderBy('criadoEm','desc'));
-    _unsubFichas = onSnapshot(q, snap => {
-      fichas = mascararFichasDemo(snap.docs.map(d => ({_id:d.id, ...d.data()})));
-      atualizarBadges(); renderAtivo();
-    }, err => {
-      _unsubFichas = onSnapshot(collection(db, COLL), snap => {
-        fichas = mascararFichasDemo(snap.docs.map(d => ({_id:d.id, ...d.data()})));
-        atualizarBadges(); renderAtivo();
-      });
-    });
-  } catch(e) { console.error(e); }
+  window._iniciarAssinaturaFilial(ACTIVE_BRANCH_CODE);
 }
 
 function comTimeout(promise, ms, msg) {
@@ -683,26 +801,30 @@ function comTimeout(promise, ms, msg) {
   ]);
 }
 
-async function uploadAnexo(file, tipo, fichaId) {
+async function uploadAnexo(conn, file, tipo, fichaId) {
+  const { ref: refFn, uploadBytes: upB, getDownloadURL: getUrl } = conn.storageModules;
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
   const path = `opme/${fichaId}/${tipo}_${Date.now()}.${ext}`;
-  const storageRef = ref(storage, path);
-  await comTimeout(uploadBytes(storageRef, file), 10000, 'Tempo esgotado ao enviar anexo (Storage). Verifique se o bucket "opme" está configurado no Supabase.');
-  return await comTimeout(getDownloadURL(storageRef), 8000, 'Tempo esgotado ao obter link do anexo.');
+  const storageRef = refFn(null, path); // 1º parâmetro é ignorado pelo shim (fecha o client na criação)
+  await comTimeout(upB(storageRef, file), 10000, 'Tempo esgotado ao enviar anexo (Storage). Verifique se o bucket "opme" está configurado no Supabase.');
+  return await comTimeout(getUrl(storageRef), 8000, 'Tempo esgotado ao obter link do anexo.');
 }
 
-// Sobe os anexos em paralelo; falha de upload não bloqueia o salvamento da ficha (dados já estão no Firestore).
-async function uploadAnexosSeguro(docId) {
+// Sobe os anexos em paralelo; falha de upload não bloqueia o salvamento da
+// ficha (dados já estão salvos). Recebe a MESMA conexão já resolvida por
+// persistir() — nunca resolve de novo, pra ficha e anexo nunca irem parar
+// em projetos Supabase diferentes.
+async function uploadAnexosSeguro(conn, docId) {
   const tarefas = [];
   if (_arquivoOpme) {
     const f = _arquivoOpme;
-    tarefas.push(uploadAnexo(f, 'ficha-opme', docId)
+    tarefas.push(uploadAnexo(conn, f, 'ficha-opme', docId)
       .then(url => ({ campo: 'opmeAnexo', url, nome: f.name }))
       .catch(e => ({ erro: true, tipo: 'Ficha OPME', msg: e.message })));
   }
   if (_arquivoPv) {
     const f = _arquivoPv;
-    tarefas.push(uploadAnexo(f, 'pedido-venda', docId)
+    tarefas.push(uploadAnexo(conn, f, 'pedido-venda', docId)
       .then(url => ({ campo: 'pvAnexo', url, nome: f.name }))
       .catch(e => ({ erro: true, tipo: 'Pedido de Venda', msg: e.message })));
   }
@@ -715,7 +837,7 @@ async function uploadAnexosSeguro(docId) {
     anexos[r.campo + 'Nome'] = r.nome;
   });
   if (Object.keys(anexos).length) {
-    await setDoc(doc(db, COLL, docId), anexos, {merge: true});
+    await conn.fbModules.setDoc(conn.fbModules.doc(conn.db, COLL, docId), anexos, {merge: true});
   }
   return falhas;
 }
@@ -726,11 +848,12 @@ async function persistir(dados, id) {
   // simula a gravação só na lista local — dá pra testar criar/editar sem
   // nunca tocar em dado de produção.
   if (window._isDemoUser) {
-    const p = { ...dados, filial: FILIAL };
+    const codigoDemo = id ? (fichas.find(f => f._id === id)?._filialOrigem) : (dados.filial || ACTIVE_BRANCH_CODE);
+    const p = { ...dados, filial: (codigoDemo || ACTIVE_BRANCH_CODE).toUpperCase() };
     let docId = id;
     if (!docId) {
       docId = 'demo-' + Date.now();
-      fichas.unshift({ _id: docId, criadoEm: new Date().toISOString(), ...p });
+      fichas.unshift({ _id: docId, _filialOrigem: codigoDemo || ACTIVE_BRANCH_CODE, criadoEm: new Date().toISOString(), ...p });
     } else {
       const idx = fichas.findIndex(f => f._id === docId);
       if (idx !== -1) fichas[idx] = { ...fichas[idx], ...p };
@@ -739,16 +862,29 @@ async function persistir(dados, id) {
     _arquivoOpme = null; _arquivoPv = null;
     return { docId, falhasAnexo: [] };
   }
-  const p = {...dados, filial: FILIAL};
+
+  // Resolve a conexão de destino ANTES de qualquer escrita — registro
+  // existente usa a filial já tagueada em memória; registro novo usa a
+  // filial escolhida no formulário (dados.filial). Nunca "chuta" um banco.
+  const existente = id ? fichas.find(f => f._id === id) : null;
+  const codigoAlvo = id ? (existente && existente._filialOrigem) : (dados.filial || '').toLowerCase();
+  const conn = window._resolverFilial({ _filialOrigem: codigoAlvo });
+  if (!conn) throw new Error('Não foi possível determinar a unidade (Campo Grande/Cuiabá) deste registro. Nada foi salvo.');
+
+  const p = {...dados, filial: (codigoAlvo || ACTIVE_BRANCH_CODE).toUpperCase()};
   let docId = id;
   if (!docId) {
-    p.criadoPor = _currentUser.uid || '';
-    const docRef = await addDoc(collection(db, COLL), p);
+    // UID da FILIAL DE DESTINO, nunca o da conexão principal — o mesmo
+    // e-mail tem um UID DIFERENTE em cada projeto Supabase, e usar sempre o
+    // UID principal quebra a foreign key ao salvar na filial secundária
+    // (bug real já sofrido e corrigido no Monitor Cirúrgico).
+    p.criadoPor = window._uidParaFilial(codigoAlvo) || _currentUser.uid || '';
+    const docRef = await conn.fbModules.addDoc(conn.fbModules.collection(conn.db, COLL), p);
     docId = docRef.id;
   } else {
-    await setDoc(doc(db, COLL, docId), p, {merge: true});
+    await conn.fbModules.setDoc(conn.fbModules.doc(conn.db, COLL, docId), p, {merge: true});
   }
-  const falhasAnexo = (_arquivoOpme || _arquivoPv) ? await uploadAnexosSeguro(docId) : [];
+  const falhasAnexo = (_arquivoOpme || _arquivoPv) ? await uploadAnexosSeguro(conn, docId) : [];
   _arquivoOpme = null;
   _arquivoPv = null;
   return { docId, falhasAnexo };
@@ -763,7 +899,10 @@ window.excluirFicha = async id => {
     toast('Ficha excluída', 'info');
     return;
   }
-  await deleteDoc(doc(db, COLL, id));
+  const existente = fichas.find(f => f._id === id);
+  const conn = window._resolverFilial(existente);
+  if (!conn) { toast('Não foi possível determinar a unidade deste registro. Nada foi excluído.', 'err'); return; }
+  await conn.fbModules.deleteDoc(conn.fbModules.doc(conn.db, COLL, id));
   toast('Ficha excluída', 'info');
 };
 
@@ -779,13 +918,15 @@ window.mudStatus = async (id, s) => {
   fichas[idx].atualizadoEm = agora;
   atualizarBadges(); renderAtivo();
   if (window._isDemoUser) return;
+  const conn = window._resolverFilial(fichas[idx]);
+  if (!conn) { toast('Não foi possível determinar a unidade deste registro. Status não foi salvo.', 'err'); return; }
   try {
-    await setDoc(doc(db, COLL, id), {status:s, _statusHistory:hist, atualizadoEm:agora}, {merge:true});
+    await conn.fbModules.setDoc(conn.fbModules.doc(conn.db, COLL, id), {status:s, _statusHistory:hist, atualizadoEm:agora}, {merge:true});
   } catch (e) {
     // Coluna status_history pode não existir ainda no banco (precisa da migração) —
     // não deixa isso travar a mudança de status em si.
     console.warn('[mudStatus] Falha ao salvar histórico, salvando só o status:', e);
-    try { await setDoc(doc(db, COLL, id), {status:s}, {merge:true}); }
+    try { await conn.fbModules.setDoc(conn.fbModules.doc(conn.db, COLL, id), {status:s}, {merge:true}); }
     catch (e2) { toast('Erro ao mudar status: ' + e2.message, 'err'); }
   }
 };
@@ -882,6 +1023,16 @@ function staleBadgeOpme(f) {
   return `<span class="${cls}" title="Sem mudança de status há ${dias} dias">⏳ ${dias}d</span>`;
 }
 
+// Selo de filial (CGR/CBA), visível só no Consolidado — sem isso não dá pra
+// saber de qual cidade é cada ficha ao ver as duas juntas.
+function _seloFilial(f) {
+  if (!IS_CONSOLIDADO) return '';
+  const code = f._filialOrigem;
+  if (code === 'cba') return '<span class="kcard-filial fc-cba">CBA</span>';
+  if (code === 'cgr') return '<span class="kcard-filial fc-cg">CGR</span>';
+  return '';
+}
+
 // LISTA
 function renderLista() {
   const lista = filtradas();
@@ -896,7 +1047,7 @@ function renderLista() {
           `<button class="iflow-btn${si===s?' cur cur'+si:''}" onclick="event.stopPropagation();mudStatus('${f._id}',${si})" title="${st.label}">${si===s?'●':(si+1)}</button>${si<5?'<span class="iflow-arr">›</span>':''}`
         ).join('');
         return `<tr onclick="abrirModal('${f._id}')">
-          <td class="td-pac">${esc(f.paciente||'—')}</td>
+          <td class="td-pac">${esc(f.paciente||'—')}${_seloFilial(f)}</td>
           <td class="td-trunc">${esc(f.medico||'—')}</td>
           <td class="td-trunc">${esc(f.procedimento||'—')}</td>
           <td class="td-trunc">${esc(f.cliente||'—')}</td>
@@ -922,7 +1073,7 @@ function renderKanban() {
         <div class="kcol-head ${st.kh}">${st.icon} ${st.label}<span class="kcnt ${st.cnt}">${cards.length}</span></div>
         <div class="kcol-body ${st.kb}">${!cards.length ? '<div class="empty-col">Sem fichas</div>' :
           cards.map(f => `<div class="kcard" onclick="abrirModal('${f._id}')">
-            <div class="kcard-pac">${esc(f.paciente||'—')}</div>
+            <div class="kcard-pac">${esc(f.paciente||'—')}${_seloFilial(f)}</div>
             <div class="kcard-proc">${esc(f.procedimento||'—')}${f.medico?' · '+esc(f.medico):''}</div>
             <div class="kcard-bot">
               <span class="kcard-conv">${esc(f.convenio||f.hospital||'—')}</span>
@@ -1134,6 +1285,10 @@ window.abrirModal = id => {
   document.getElementById('import-badge').classList.remove('show');
   document.getElementById('pv-input').value = '';
 
+  const gFilialOpme = document.getElementById('g-filial-opme');
+  const fFilialOpme = document.getElementById('f-filial-opme');
+  if (gFilialOpme) gFilialOpme.style.display = IS_CONSOLIDADO ? '' : 'none';
+
   if (id) {
     const f = fichas.find(x => x._id===id);
     if (!f) return;
@@ -1145,6 +1300,8 @@ window.abrirModal = id => {
     document.getElementById('f-cliente').value = f.cliente||'';
     document.getElementById('f-conv').value   = f.convenio||'';
     document.getElementById('f-pedido').value = f.numeroPedido||'';
+    if (fFilialOpme) { fFilialOpme.value = f._filialOrigem || ''; fFilialOpme.disabled = true; }
+    _atualizarZonaPvHabilitada();
     document.getElementById('f-data').value   = f.dataCirurgia||'';
     document.getElementById('f-status').value = f.status??0;
     document.getElementById('f-obs').value    = f.observacoes||'';
@@ -1173,6 +1330,8 @@ window.abrirModal = id => {
     document.getElementById('f-hosp').value   = up.get('hospital')    || '';
     document.getElementById('f-conv').value   = up.get('convenio')    || '';
     document.getElementById('f-pedido').value = '';
+    if (fFilialOpme) { fFilialOpme.value = ''; fFilialOpme.disabled = false; }
+    _atualizarZonaPvHabilitada();
     document.getElementById('f-data').value   = up.get('data')        || '';
     document.getElementById('f-obs').value    = '';
     document.getElementById('f-status').value = 0;
@@ -1189,6 +1348,12 @@ function aplicarModoLeituraModal() {
   const so = !!window._fichaReadOnly;
   modal.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = so; });
   modal.querySelectorAll('.item-rm, .add-item').forEach(el => { el.style.display = so ? 'none' : ''; });
+  // O loop genérico acima reabilitaria o campo Filial travado (edição em
+  // Consolidado) se o usuário não for readonly — reforça a trava depois.
+  if (editingId && IS_CONSOLIDADO) {
+    const fFilialOpme = document.getElementById('f-filial-opme');
+    if (fFilialOpme) fFilialOpme.disabled = true;
+  }
   const btnSalvar = document.getElementById('btn-salvar');
   if (btnSalvar) btnSalvar.style.display = so ? 'none' : '';
   const title = document.getElementById('modal-title');
@@ -1206,6 +1371,16 @@ window.salvarFicha = async () => {
   const proc = document.getElementById('f-proc').value.trim();
   if (!pac)  { alert('Informe o paciente.'); return; }
   if (!med)  { alert('Informe o médico.'); return; }
+  let filialEscolhida = ACTIVE_BRANCH_CODE;
+  if (IS_CONSOLIDADO && !editingId) {
+    const fFilialOpme = document.getElementById('f-filial-opme');
+    filialEscolhida = fFilialOpme ? fFilialOpme.value : '';
+    if (filialEscolhida !== 'cgr' && filialEscolhida !== 'cba') {
+      fFilialOpme.style.borderColor = '#f97316'; fFilialOpme.focus();
+      alert('⚠️ Selecione a unidade (Campo Grande ou Cuiabá) antes de salvar.');
+      return;
+    }
+  }
   coletarItens();
   const iv = itens.filter(i => i.descricao.trim());
   const total = iv.reduce((s,i) => s + (Number(i.precoUnit)||0)*(Number(i.qtd)||0), 0);
@@ -1218,7 +1393,8 @@ window.salvarFicha = async () => {
     dataCirurgia: document.getElementById('f-data').value,
     status:       parseInt(document.getElementById('f-status').value),
     observacoes:  document.getElementById('f-obs').value.trim(),
-    itens:iv, total
+    itens:iv, total,
+    filial: filialEscolhida
   };
   const btn = document.getElementById('btn-salvar');
   btn.disabled = true; btn.textContent = 'Salvando…';
@@ -1309,8 +1485,49 @@ window.removerArq = (e, tipo) => {
 };
 
 // C160 PDF
+// Resolve qual filial usar numa operação (parser C160, listener condicional)
+// que hoje ainda depende da constante única ACTIVE_BRANCH_CODE. Fora do
+// Consolidado, é sempre a única filial da sessão. Em Consolidado, editando
+// um registro existente é a filial travada dele; criando um novo, é o que
+// estiver escolhido no select — pode mudar registro a registro, então nunca
+// dá pra decidir isso uma vez só no carregamento da página.
+function filialParaOperacao() {
+  if (!IS_CONSOLIDADO) return ACTIVE_BRANCH_CODE;
+  if (editingId) {
+    const f = fichas.find(x => x._id === editingId);
+    return f ? f._filialOrigem : '';
+  }
+  const el = document.getElementById('f-filial-opme');
+  return el ? el.value : '';
+}
+
+// Em Consolidado, um registro novo só tem filial definida quando o usuário
+// escolhe no select — trava a zona de importar PDF até isso acontecer, pra
+// não rodar o parser com a variante errada.
+function _atualizarZonaPvHabilitada() {
+  const pvInput = document.getElementById('pv-input');
+  const zonaPv = document.getElementById('zone-pv');
+  if (!pvInput || !zonaPv) return;
+  if (!IS_CONSOLIDADO) { pvInput.disabled = false; zonaPv.style.opacity = ''; zonaPv.style.pointerEvents = ''; return; }
+  const f = filialParaOperacao();
+  const ok = f === 'cgr' || f === 'cba';
+  pvInput.disabled = !ok;
+  zonaPv.style.opacity = ok ? '' : '0.5';
+  zonaPv.style.pointerEvents = ok ? '' : 'none';
+}
+if (IS_CONSOLIDADO) {
+  const fFilialOpmeEl = document.getElementById('f-filial-opme');
+  if (fFilialOpmeEl) fFilialOpmeEl.addEventListener('change', _atualizarZonaPvHabilitada);
+}
+
 window.selecionarPV = async input => {
   const file = input.files[0]; if (!file) return;
+  const filialAlvo = filialParaOperacao();
+  if (IS_CONSOLIDADO && (filialAlvo !== 'cgr' && filialAlvo !== 'cba')) {
+    toast('Selecione a Filial antes de importar o PDF.', 'err');
+    input.value = '';
+    return;
+  }
   _arquivoPv = file;
   document.getElementById('fp-pv-n').textContent = file.name;
   document.getElementById('fp-pv-s').textContent = fmt(file.size);
@@ -1319,7 +1536,7 @@ window.selecionarPV = async input => {
   if (typeof pdfjsLib === 'undefined') { toast('PDF.js não disponível.','err'); return; }
   toast('Lendo PDF…','info');
   try {
-    const dados = await extrairC160(file, file.name);
+    const dados = await extrairC160(file, file.name, filialAlvo);
     preencherDeC160(dados);
     document.getElementById('import-badge').classList.add('show');
     const temPdf = !!(dados.medico || dados.hospital || dados.convenio);
@@ -1327,9 +1544,9 @@ window.selecionarPV = async input => {
   } catch(e) { console.error(e); toast('Não foi possível extrair os dados.','err'); }
 };
 
-async function extrairC160(file, filename) {
+async function extrairC160(file, filename, filialAlvo) {
   // Extrai do filename primeiro — sempre disponível mesmo se PDF falhar
-  const base = parsearC160('', filename);
+  const base = parsearC160('', filename, filialAlvo);
   try {
     const ab = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({data:ab}).promise;
@@ -1369,7 +1586,7 @@ async function extrairC160(file, filename) {
       return r;
     }).join('\n');
     console.log('[C160] texto bruto extraído pelo PDF.js:\n' + texto);
-    const fromPdf = parsearC160(texto, filename);
+    const fromPdf = parsearC160(texto, filename, filialAlvo);
     console.log('[C160] dados extraídos:', fromPdf);
     // Merge: PDF tem prioridade, filename preenche o que faltar
     return Object.assign(base, fromPdf);
@@ -1379,7 +1596,7 @@ async function extrairC160(file, filename) {
   }
 }
 
-function parsearC160(texto, filename) {
+function parsearC160(texto, filename, filialAlvo) {
   const r = {itens:[]};
   const lmp = s => s.replace(/\s+/g,' ').trim();
   const pv = v => parseFloat((v||'').replace(/\./g,'').replace(',','.')) || 0;
@@ -1403,7 +1620,7 @@ function parsearC160(texto, filename) {
   // (ex.: "284 UNIMED CAMPO GRANDE MS - CONVENIO Dt. Digitação: 12/06/2026").
   // Roda antes do resto pra ter prioridade sobre a extração por rótulo
   // "Hospital:" abaixo (que só preenche se r.hospital ainda não tiver valor).
-  if (ACTIVE_BRANCH_CODE === 'cba') {
+  if (filialAlvo === 'cba') {
     const mCliente = txt.match(/\d{1,6}\s+(.+?)\s+Dt\.\s*Digita[çc][aã]o\s*:/i);
     if (mCliente) r.hospital = lmp(mCliente[1]);
   }
@@ -1423,7 +1640,7 @@ function parsearC160(texto, filename) {
   // "vazaria" para a linha seguinte e capturaria o próximo rótulo como valor.
   // Cuiabá reconhece mais variantes de rótulo (os PDFs de lá vêm em layout
   // diferente dos de Campo Grande) — preservado por filial.
-  const HOSP_LABELS = ACTIVE_BRANCH_CODE === 'cba'
+  const HOSP_LABELS = filialAlvo === 'cba'
     ? /(?:Hospital|Cl[ií]nica|Cliente(?:\s*\/\s*Hospital)?|Nome\s+do\s+Cliente|Raz[aã]o\s+Social|Empresa|Estabelecimento)/i
     : /(?:Hospital|Cl[ií]nica|Nome\s+do\s+Hospital|Estabelecimento)/i;
   const hdInline = [
@@ -1625,15 +1842,24 @@ function parsearC160(texto, filename) {
 
 async function carregarRegistros() {
   try {
-    const snap = await getDocs(collection(db, 'procedimentos'));
     const meds = new Set(), hosps = new Set(), convs = new Set();
-    snap.forEach(d => {
-      const data = d.data();
-      if (data.medico?.trim()) meds.add(data.medico.trim());
-      if (data.hospital?.trim()) hosps.add(data.hospital.trim());
-      const conv = (data.convenio || data.plano || '').trim();
-      if (conv) convs.add(conv);
-    });
+    // Em Consolidado, busca sugestões de médico/hospital/convênio nas duas
+    // conexões — quem está criando uma ficha pode ser de qualquer uma das
+    // duas cidades.
+    const conns = IS_CONSOLIDADO
+      ? [window._gfConnections.cgr, window._gfConnections.cba].filter(Boolean)
+      : [{ db, fbModules: { collection, getDocs } }];
+    await Promise.all(conns.map(async conn => {
+      const { collection: col, getDocs: gd } = conn.fbModules;
+      const snap = await gd(col(conn.db, 'procedimentos'));
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.medico?.trim()) meds.add(data.medico.trim());
+        if (data.hospital?.trim()) hosps.add(data.hospital.trim());
+        const conv = (data.convenio || data.plano || '').trim();
+        if (conv) convs.add(conv);
+      });
+    }));
     fichas.forEach(f => {
       if (f.medico?.trim()) meds.add(f.medico.trim());
       if (f.hospital?.trim()) hosps.add(f.hospital.trim());
@@ -1676,7 +1902,7 @@ window.exportarCSV = () => {
   ].map(v => '"'+(v||'').replace(/"/g,'""')+'"').join(';'));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿'+[cab.join(';'),...rows].join('\n'),{type:'text/csv;charset=utf-8'}]));
-  a.download = 'fichas-opme-'+ACTIVE_BRANCH_CODE+'-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download = 'fichas-opme-'+(IS_CONSOLIDADO ? 'consolidado' : ACTIVE_BRANCH_CODE)+'-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
 };
 
@@ -1864,15 +2090,16 @@ document.getElementById('f-conv').addEventListener('change', () => {
 
 // Sincronização: Hospital → Cliente (só Cuiabá — auto-preencher cliente com
 // hospital se vazio; em Campo Grande esse comportamento nunca existiu, então
-// fica condicionado à filial pra não mudar o que já funciona lá).
-if (ACTIVE_BRANCH_CODE === 'cba') {
-  document.getElementById('f-hosp').addEventListener('change', () => {
-    const clienteInput = document.getElementById('f-cliente');
-    if (!clienteInput.value.trim()) {
-      clienteInput.value = document.getElementById('f-hosp').value;
-    }
-  });
-}
+// fica condicionado à filial pra não mudar o que já funciona lá). Em
+// Consolidado a filial muda registro a registro, então checa a cada disparo
+// em vez de decidir uma vez só no carregamento da página.
+document.getElementById('f-hosp').addEventListener('change', () => {
+  if (filialParaOperacao() !== 'cba') return;
+  const clienteInput = document.getElementById('f-cliente');
+  if (!clienteInput.value.trim()) {
+    clienteInput.value = document.getElementById('f-hosp').value;
+  }
+});
 </script>
 </body>
 </html>
