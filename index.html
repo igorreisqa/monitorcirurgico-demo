@@ -7581,13 +7581,13 @@ window.cobrarIndividualWhatsApp = async function(docId) {
     const isFicha = p.status === 'aguardando_ficha_opme';
 
     const linhas = [];
-    linhas.push('Olá! 😊');
-    linhas.push('Segue a pendência do *Monitor Cirúrgico*:');
+    linhas.push(isFicha
+        ? 'Olá! Poderia providenciar a entrega da ficha do OPME o quanto antes? É pra garantir a laudação com o convênio e o faturamento com o cliente no prazo. Qualquer dúvida, me chama!'
+        : 'Olá! Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
     linhas.push('');
     linhas.push(isFicha
         ? '📋 *AGUARDANDO FICHA OPME* (material já retirado, falta entregar a ficha ao estoque)'
         : '📦 *AGUARDANDO RETIRADA* (material ainda não devolvido ao estoque)');
-    linhas.push('');
     linhas.push('---');
     linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
     linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
@@ -7597,11 +7597,6 @@ window.cobrarIndividualWhatsApp = async function(docId) {
         ? '📅 *Material retirado em:* ' + fmt(p.dataConfirmacaoRetirada)
         : '📅 *Data de retirada:* ' + fmt(p.retirada));
     linhas.push('---');
-    linhas.push('');
-    linhas.push(isFicha
-        ? 'Poderia providenciar a entrega da ficha do OPME o quanto antes? É pra garantir a laudação com o convênio e o faturamento com o cliente no prazo.'
-        : 'Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
-    linhas.push('Qualquer dúvida, é só me chamar! 🙏');
     linhas.push('');
     linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
 
