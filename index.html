@@ -7537,57 +7537,54 @@ async function exportarWhatsApp(filtro) {
     }
 
     var linhas = [];
-    linhas.push('Olá! 😊');
+    linhas.push('Olá! ');
     linhas.push('Segue as pendências do *Monitor Cirúrgico*:');
 
     if (cirurgias.length > 0) {
         linhas.push('');
-        linhas.push('📦 *AGUARDANDO RETIRADA* (material ainda não devolvido ao estoque)');
+        linhas.push('*AGUARDANDO RETIRADA* (material ainda não devolvido ao estoque)');
         _agruparPorFilialWhatsApp(cirurgias).forEach(function(grupo) {
             if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
             grupo.itens.forEach(function(p) {
                 linhas.push('');
                 linhas.push('---');
-                linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
-                linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
-                linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
-                linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
-                linhas.push('📅 *Data de retirada:* ' + fmt(p.retirada));
+                linhas.push('*Paciente:* ' + (p.paciente || '—'));
+                linhas.push('*Hospital:* ' + (p.hospital || '—'));
+                linhas.push('*Nº da Nota Fiscal:* ' + (p.nf || '—'));
+                linhas.push('*Vendedor:* ' + (p.vendedor || '—'));
+                linhas.push('*Data de retirada:* ' + fmt(p.retirada));
             });
         });
         linhas.push('');
         linhas.push('---');
         linhas.push('Total: *' + cirurgias.length + ' pendência(s) de retirada*');
+        linhas.push('');
+        linhas.push('Por favor, providencie a devolução o quanto antes para garantir a disponibilidade dos produtos no estoque.');
+        linhas.push('Qualquer dúvida, é só me chamar! 🙏');
     }
 
     if (fichasPendentes.length > 0) {
         linhas.push('');
-        linhas.push('📋 *AGUARDANDO FICHA OPME* (material já retirado, falta entregar a ficha ao estoque)');
+        linhas.push('*AGUARDANDO FICHA OPME* (material já retirado, falta entregar a ficha ao estoque)');
         _agruparPorFilialWhatsApp(fichasPendentes).forEach(function(grupo) {
             if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
             grupo.itens.forEach(function(p) {
                 linhas.push('');
                 linhas.push('---');
-                linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
-                linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
-                linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
-                linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
-                linhas.push('📅 *Material retirado em:* ' + fmt(p.dataConfirmacaoRetirada));
+                linhas.push('*Paciente:* ' + (p.paciente || '—'));
+                linhas.push('*Hospital:* ' + (p.hospital || '—'));
+                linhas.push('*Nº da Nota Fiscal:* ' + (p.nf || '—'));
+                linhas.push('*Vendedor:* ' + (p.vendedor || '—'));
+                linhas.push('*Material retirado em:* ' + fmt(p.dataConfirmacaoRetirada));
             });
         });
         linhas.push('');
         linhas.push('---');
         linhas.push('Total: *' + fichasPendentes.length + ' ficha(s) OPME pendente(s)*');
-    }
-
-    linhas.push('');
-    if (cirurgias.length > 0) {
-        linhas.push('Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
-    }
-    if (fichasPendentes.length > 0) {
+        linhas.push('');
         linhas.push('Poderia providenciar a entrega da ficha do OPME o quanto antes? É pra garantir a laudação com o convênio e o faturamento com o cliente no prazo.');
     }
-    linhas.push('Qualquer dúvida, é só me chamar! 🙏');
+
     linhas.push('');
     linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
 
