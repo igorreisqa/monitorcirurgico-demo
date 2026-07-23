@@ -726,6 +726,87 @@
         return _porFilial[ACTIVE_BRANCH_CODE] || [];
       }
 
+      // Auditoria: acha registros que provavelmente foram parar no banco
+      // errado (ex.: restauração de backup na filial errada, exatamente o
+      // caso real já encontrado em produção). Só lê os dados já carregados
+      // em memória (_porFilial) — não faz nenhuma escrita.
+      window.verificarDuplicatasEntreFiliais = function() {
+        if (window._gfMode !== 'consolidado') {
+          alert('Essa checagem só funciona no modo Consolidado, com as duas filiais carregadas.');
+          return;
+        }
+        const cgr = _porFilial.cgr || [];
+        const cba = _porFilial.cba || [];
+        const suspeitos = [];
+
+        // 1. Campo "filial" do registro aponta pra cidade diferente de onde
+        // ele está fisicamente salvo — sinal direto de restauração de
+        // backup no banco errado.
+        cgr.forEach(p => {
+          const f = (p.filial || '').toLowerCase();
+          if (f === 'cba' || f === 'cuiaba' || f === 'cuiabá') {
+            suspeitos.push({ tipo: '⚠️ Filial do registro não bate com o banco', proc: p, ondeEsta: 'Campo Grande', dizQueE: 'Cuiabá' });
+          }
+        });
+        cba.forEach(p => {
+          const f = (p.filial || '').toLowerCase();
+          if (f === 'cgr' || f === 'campo grande') {
+            suspeitos.push({ tipo: '⚠️ Filial do registro não bate com o banco', proc: p, ondeEsta: 'Cuiabá', dizQueE: 'Campo Grande' });
+          }
+        });
+
+        // 2. Mesma Nota Fiscal aparecendo nas duas cidades — provável
+        // duplicata (o mesmo caso real: cópia indevida de um registro).
+        const porNfCgr = {};
+        cgr.forEach(p => { if (p.nf) (porNfCgr[p.nf] = porNfCgr[p.nf] || []).push(p); });
+        cba.forEach(pCba => {
+          if (pCba.nf && porNfCgr[pCba.nf]) {
+            porNfCgr[pCba.nf].forEach(pCgr => {
+              suspeitos.push({ tipo: '🔁 Mesma Nota Fiscal nas duas cidades', proc: pCba, procOutro: pCgr, ondeEsta: 'Cuiabá', ondeTambem: 'Campo Grande' });
+            });
+          }
+        });
+
+        mostrarResultadoDuplicatas(suspeitos);
+      };
+
+      function mostrarResultadoDuplicatas(suspeitos) {
+        const antigo = document.getElementById('modalDuplicatas');
+        if (antigo) antigo.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'modalDuplicatas';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px;';
+
+        let itensHTML;
+        if (!suspeitos.length) {
+          itensHTML = '<div style="text-align:center;padding:40px 20px;color:#9ca3af;font-family:var(--mono);font-size:0.85rem;">✅ Nenhuma duplicata ou registro fora do lugar encontrado entre as duas filiais.</div>';
+        } else {
+          itensHTML = suspeitos.map(s => `
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border,#e5e7eb);">
+              <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:#ef4444;margin-bottom:4px;">${s.tipo}</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.88rem;color:var(--text,#111);">${esc(s.proc.paciente || '—')}</div>
+              <div style="font-family:var(--mono);font-size:0.7rem;color:#6b7280;margin-top:2px;">${esc(s.proc.hospital || '—')} · NF ${esc(s.proc.nf || '—')}</div>
+              <div style="font-family:var(--mono);font-size:0.7rem;color:#6b7280;margin-top:2px;">
+                ${s.procOutro
+                  ? 'Está salvo em <b>' + s.ondeEsta + '</b> e também em <b>' + s.ondeTambem + '</b>'
+                  : 'Está salvo em <b>' + s.ondeEsta + '</b>, mas o campo Filial diz "' + esc(s.dizQueE) + '"'}
+              </div>
+            </div>`).join('');
+        }
+
+        overlay.innerHTML = `
+          <div style="background:var(--surface,#fff);border-radius:16px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border,#e5e7eb);">
+              <span style="font-family:var(--mono);font-size:0.8rem;font-weight:700;color:#ef4444;">🚨 Duplicatas entre filiais${suspeitos.length ? ' (' + suspeitos.length + ')' : ''}</span>
+              <button onclick="document.getElementById('modalDuplicatas').remove()" style="background:none;border:1px solid var(--border,#e5e7eb);color:#6b7280;width:28px;height:28px;border-radius:6px;cursor:pointer;">✕</button>
+            </div>
+            <div style="overflow-y:auto;flex:1;">${itensHTML}</div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      }
+
       function processarSnapshotFilial(branchCode, conn, snapshot) {
         const dados = snapshot.docs.map(d => ({ _docId: d.id, _filialOrigem: branchCode, ...d.data() }));
         if (window._isDemoUser) {
@@ -9373,27 +9454,42 @@ function switchView(v) {
 let _atividadeUsuarios = null;
 let _atividadeFichas = null;
 
+// Em Consolidado, busca nas duas conexões — senão, o nome de usuários e as
+// fichas OPME cadastrados na filial secundária ficam de fora do log.
+function _conexoesAtividade() {
+    if (window._gfMode === 'consolidado' && window._gfConnections) {
+        return [
+            window._gfConnections.cgr ? { code: 'cgr', db: window._gfConnections.cgr.db, fbModules: window._gfConnections.cgr.fbModules } : null,
+            window._gfConnections.cba ? { code: 'cba', db: window._gfConnections.cba.db, fbModules: window._gfConnections.cba.fbModules } : null,
+        ].filter(Boolean);
+    }
+    return [{ code: ACTIVE_BRANCH_CODE, db: window._fbDb, fbModules: window._fbModules }];
+}
+
 async function _carregarUsuariosAtividade() {
     if (_atividadeUsuarios) return _atividadeUsuarios;
     const map = {};
-    try {
-        const { collection: col, getDocs: gd } = window._fbModules;
-        const snap = await gd(col(window._fbDb, 'usuarios'));
-        snap.docs.forEach(d => { const u = d.data(); map[d.id] = u.nome || u.email || d.id; });
-    } catch (e) { console.warn('[Atividade] Falha ao carregar usuários:', e); }
+    await Promise.all(_conexoesAtividade().map(async conn => {
+        try {
+            const { collection: col, getDocs: gd } = conn.fbModules;
+            const snap = await gd(col(conn.db, 'usuarios'));
+            snap.docs.forEach(d => { const u = d.data(); map[d.id] = u.nome || u.email || d.id; });
+        } catch (e) { console.warn('[Atividade] Falha ao carregar usuários (' + conn.code + '):', e); }
+    }));
     _atividadeUsuarios = map;
     return map;
 }
 
 async function _carregarFichasAtividade() {
-    try {
-        const { collection: col, getDocs: gd } = window._fbModules;
-        const snap = await gd(col(window._fbDb, 'fichas_opme'));
-        return snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
-    } catch (e) {
-        console.warn('[Atividade] Falha ao carregar fichas OPME:', e);
-        return [];
-    }
+    const resultados = [];
+    await Promise.all(_conexoesAtividade().map(async conn => {
+        try {
+            const { collection: col, getDocs: gd } = conn.fbModules;
+            const snap = await gd(col(conn.db, 'fichas_opme'));
+            snap.docs.forEach(d => resultados.push({ _docId: d.id, _filialOrigem: conn.code, ...d.data() }));
+        } catch (e) { console.warn('[Atividade] Falha ao carregar fichas OPME (' + conn.code + '):', e); }
+    }));
+    return resultados;
 }
 
 async function renderAtividade(forcar) {
@@ -17971,6 +18067,7 @@ function injetarBotoesRapidos() {
         <button onclick="abrirPainelVendedor()" style="flex-shrink:0;padding:5px 11px;border-radius:999px;border:1px solid rgba(77,184,122,0.3);background:transparent;color:#4db87a;font-family:var(--mono);font-size:0.65rem;font-weight:700;cursor:pointer;white-space:nowrap;" title="V">👤 Vendedor</button>
         <button onclick="abrirPesquisaGlobal()" style="flex-shrink:0;padding:5px 11px;border-radius:999px;border:1px solid rgba(99,102,241,0.3);background:transparent;color:#6366f1;font-family:var(--mono);font-size:0.65rem;font-weight:700;cursor:pointer;white-space:nowrap;" title="F">🔍 Busca Global</button>
         <button onclick="imprimirRelatorio()" style="flex-shrink:0;padding:5px 11px;border-radius:999px;border:1px solid rgba(107,114,128,0.3);background:transparent;color:#6b7280;font-family:var(--mono);font-size:0.65rem;font-weight:700;cursor:pointer;white-space:nowrap;" title="Imprimir">🖨️ Imprimir</button>
+        ${window._gfMode === 'consolidado' ? '<button onclick="window.verificarDuplicatasEntreFiliais()" style="flex-shrink:0;padding:5px 11px;border-radius:999px;border:1px solid rgba(239,68,68,0.35);background:transparent;color:#ef4444;font-family:var(--mono);font-size:0.65rem;font-weight:700;cursor:pointer;white-space:nowrap;" title="Verificar registros duplicados entre Campo Grande e Cuiabá">🚨 Verificar Duplicatas</button>' : ''}
     `;
     statsBar.insertAdjacentElement('afterend', barra);
 
