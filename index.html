@@ -5188,9 +5188,12 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
 
     <!-- ATIVIDADE: quem lançou o quê e quando (cirurgia, coleta, ficha OPME) -->
     <div id="atividade-view" style="display:none;padding:16px 0;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <div style="font-family:var(--mono);font-size:0.78rem;color:var(--text-dim);">Últimos lançamentos — cirurgia, coleta e ficha OPME</div>
-            <button class="btn-act" style="background:rgba(77,184,122,0.1);border-color:var(--accent2);color:var(--accent2);" onclick="renderAtividade(true)">🔄 Atualizar</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <select id="atividade-filtro-mes" class="form-select" style="padding:6px 10px;font-size:0.78rem;" onchange="window._atividadeFiltroMes = this.value; renderAtividade();"></select>
+                <button class="btn-act" style="background:rgba(77,184,122,0.1);border-color:var(--accent2);color:var(--accent2);" onclick="renderAtividade(true)">🔄 Atualizar</button>
+            </div>
         </div>
         <div id="atividade-lista"></div>
     </div>
@@ -10068,11 +10071,32 @@ async function renderAtividade(forcar) {
             hospital: f.hospital || '—',
         }));
 
-    const todosEventos = [...eventosProc, ...eventosFichas];
+    const todosEventosBrutos = [...eventosProc, ...eventosFichas];
+
+    // Filtro por mês — permite ver quantos lançamentos foram feitos em cada
+    // período, não só o total acumulado. window._atividadeFiltroMes fica
+    // '' (todos os meses) ou 'AAAA-MM'.
+    const mesesDisponiveis = [...new Set(todosEventosBrutos.map(ev => (ev.quando || '').slice(0, 7)).filter(Boolean))]
+        .sort().reverse();
+    const selMes = document.getElementById('atividade-filtro-mes');
+    if (selMes) {
+        const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const valorAtual = window._atividadeFiltroMes || '';
+        selMes.innerHTML = '<option value="">Todos os meses</option>' +
+            mesesDisponiveis.map(ym => {
+                const [y, m] = ym.split('-');
+                const label = nomesMes[parseInt(m, 10) - 1] + ' de ' + y;
+                return `<option value="${ym}">${label}</option>`;
+            }).join('');
+        selMes.value = mesesDisponiveis.includes(valorAtual) ? valorAtual : '';
+        window._atividadeFiltroMes = selMes.value;
+    }
+    const todosEventos = window._atividadeFiltroMes
+        ? todosEventosBrutos.filter(ev => (ev.quando || '').slice(0, 7) === window._atividadeFiltroMes)
+        : todosEventosBrutos;
 
     // Resumo por operador: quantas cirurgias, fichas OPME e coletas cada um
-    // lançou — conta em cima de TODOS os eventos, não só dos 200 mais
-    // recentes mostrados na tabela detalhada abaixo.
+    // lançou no período selecionado (ou em todos os meses).
     const resumoPorOperador = {};
     todosEventos.forEach(ev => {
         const nome = ev.quem || '—';
@@ -10090,7 +10114,9 @@ async function renderAtividade(forcar) {
         .slice(0, 200);
 
     if (!eventos.length) {
-        el.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-family:var(--mono);font-size:0.8rem;">Nenhum lançamento registrado ainda.</div>';
+        el.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-family:var(--mono);font-size:0.8rem;">' +
+            (window._atividadeFiltroMes ? 'Nenhum lançamento nesse mês.' : 'Nenhum lançamento registrado ainda.') +
+            '</div>';
         return;
     }
 
