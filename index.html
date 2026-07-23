@@ -6324,6 +6324,9 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
 
                 <div class="form-group full">
                     <label class="form-label">Procedimento</label>
+                    <select class="form-select" id="f-procedimento-sugestoes" onchange="if(this.value){ document.getElementById('f-procedimento').value = this.value; }" style="margin-bottom:8px;">
+                        <option value="">Sugestões (selecione o Tipo de Cirurgia)</option>
+                    </select>
                     <textarea class="form-textarea" id="f-procedimento" placeholder="Descreva o procedimento"></textarea>
                 </div>
 
@@ -7434,7 +7437,12 @@ async function exportarWhatsApp() {
     if (!confirmarFilialAntesDeCobrar()) return;
     await verificarPromocaoRetirada();
 
-    var fmt = function(d) { return d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—'; };
+    var fmt = function(d) {
+        if (!d) return '—';
+        var s = String(d);
+        var dt = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s);
+        return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR');
+    };
 
     var cirurgias = procedimentos.filter(function(p) {
         if (_ehColeta(p) || p.isColeta) return false;
@@ -8991,6 +8999,7 @@ function editProc(docId) {
             if (gTC) gTC.style.display = 'none';
             if (oTC) oTC.value = '';
         }
+        if (window.atualizarSugestoesProcedimento) window.atualizarSugestoesProcedimento();
     })();
     document.getElementById('f-linha').value = p.linha || '';
     document.getElementById('f-inicio').value = p.inicio;
@@ -9154,6 +9163,8 @@ function _doOpenModal() {
     autoStatusByDate(todayStr());
     loadItensBuilder('');
     document.getElementById('g-outro-conv').style.display = 'none';
+    const gOutroTipo = document.getElementById('g-outro-tipo-cirurgia'); if (gOutroTipo) gOutroTipo.style.display = 'none';
+    if (window.atualizarSugestoesProcedimento) window.atualizarSugestoesProcedimento();
     const sReset3 = document.getElementById('f-subgrupo3'); if(sReset3) { sReset3.innerHTML='<option value="">Selecione a linha primeiro</option>'; }
     const sReset4 = document.getElementById('f-subgrupo4'); if(sReset4) { sReset4.innerHTML='<option value="">Selecione a linha primeiro</option>'; }
     const sReset5 = document.getElementById('f-subgrupo5'); if(sReset5) { sReset5.innerHTML='<option value="">Selecione a linha primeiro</option>'; }
@@ -9193,6 +9204,25 @@ function openModalVolumes() {
 
 // ─── SUBGRUPOS ───
 const SUBGRUPOS_MAP = {"Linha Biopsia": ["Agulha de Biopsia Coaxial", "Agulha de Biopsia Illinois", "Agulha de Biopsia Jamishiditj", "Agulha de Biopsia Jamshidi", "Agulha de Biopsia Magnum", "Fio de Localização", "Insersor", "Inst Semi Automatico", "Instrumento Descartavel", "Kit Inst Semi Automatico", "Lubrificantes", "Marcador", "Recipiente", "Sist Biopsia de Mama", "Sonda"], "Linha Cardiaca": ["Canula Aramada", "Cirurgia Cardiaca", "Clip Cirurgia Aberta", "Clip Cirurgia Fechada", "Enxerto Bifurcado", "Enxerto EPTFE", "Enxerto Tubular Reto", "Guia de Selecao", "Kit Auto Transfusao", "Kit CEC", "Medidor", "Perfurador", "Ponteira Extensora", "Selante", "Sistema Ablação", "Sistema de Sutura", "Valvula Cardiaca"], "Linha Coronaria": ["Agulha de Biopsia", "Balao Coronario", "Cateter Angiografico", "Cateter Balao PowerLine", "Cateter Balao Rise", "Cateter Diagnostico", "Cateter Guia", "Cateter Laco de Captura", "Dispositivo de Torque", "Fio Guia", "Insuflador", "Introdutor Siliconado Femoral", "Introdutor Siliconado Radial", "Kit Introdutor Valvulado", "Manifold", "Stent", "Torneirinha", "Tubo Extensor de Pressao", "Valvula Hemoastatica"], "Linha Endovascular": ["Cateter Balao", "Endoprotese Aortica", "Endoprotese BIF E-liac", "Endoprotese CL", "Endoprotese CP", "Endoprotese Extensao Eliaca", "Endoprotese Hibrida", "Endoprotese Toracica", "Fio Guia", "Radiointervencao", "Stent"], "Linha Nefro": ["Balao Super Altra Pressao", "Cateter de Longa Permanencia", "Endoprotese Wrapsody", "Hero Graft"], "Linha Periferica": ["Agulha de Biopsia", "Bainha Introdutora", "Balao Periferico", "Balao Super Altra Pressao", "Balao de Alta Pressao", "Balao de Scoring", "Bolsa Coletora", "Bolsa Succao", "Bomba de Drenagem", "Cateter Balao", "Cateter Diagnostico", "Cateter Laco de Captura", "Cateter de Aspiracao", "Cateter de Drenagem", "Cateter de Infusao", "Cateter de Longa Permanencia", "Cateter de Suporte", "Dispositivo Venoso", "Dispositivo de Compressão", "Filtro VCF", "Fio Guia", "Fio Guia Teflonado", "Introdutor Longo", "Kit Angiografico", "Kit Cateter", "Kit Drenagem Biliar", "Kit Drenagem Convencional", "Kit Introdutor", "Kit Micropuncao Pedal", "Micro Cateter", "Micro Esfera", "Micro Guia", "Particula de Embolizacao", "Protese Veia Cava", "Protese de Fechamento", "Radiointervencao", "Stent", "Stent Sinus Obliquuos", "Stent Sinus Venous"], "Linha Urologia": ["Acesso", "Calculo Renal", "Dilatacao", "Eletrodo", "Evacuador", "Extrator de Calculo", "Irrigacao", "Kit Dilatacao", "Kit Drenagem Convencional", "Kit Percutaneo", "Laser", "Protese Peniana", "Protese Testicular", "RTU Acessorios"], "Linha Neuro": ["Clipe de Aneurisma", "Derivação Ventrículo-Peritoneal (DVP)", "Eletrodo de Estimulação Cerebral", "Malha de Titânio para Cranioplastia", "Parafuso Pedicular", "Placa de Fixação Craniana", "Sistema de Neuronavegação", "Válvula de Hidrocefalia"], "Linha Ortopédica": ["Âncora de Sutura", "Cimento Ósseo", "Fio de Kirschner", "Fixador Externo", "Haste Intramedular", "Parafuso Canulado", "Parafuso de Compressão", "Placa de Osteossíntese", "Prótese de Joelho", "Prótese de Ombro", "Prótese de Quadril"], "Linha Vascular": ["Enxerto Vascular", "Fio de Sutura Vascular", "Prótese Vascular EPTFE", "Shunt Vascular Temporário", "Torniquete Pneumático"], "Linha Torácica": ["Dreno Torácico", "Grampeador Torácico", "Prótese Traqueal", "Selante Pulmonar", "Sistema de Drenagem Torácica", "Válvula Endobrônquica"], "Linha Oncológica": ["Cateter Port-a-Cath", "Clipe de Marcação Tumoral", "Marcador de Localização Radioativa (ROLL)", "Sistema de Infusão Quimioterápica", "Tela Cirúrgica Oncológica"], "Linha Bariátrica": ["Anel de Contenção Gástrica", "Balão Intragástrico", "Banda Gástrica Ajustável", "Grampeador Bariátrico", "Kit de Sutura Endoscópica", "Tela de Reforço de Sutura"], "Linha Geral": ["Grampeador Linear", "Malha de Hérnia", "Sistema de Drenagem Abdominal", "Tela Cirúrgica", "Trocarte Laparoscópico"], "Linha Aparelho Digestivo": ["Clipe Endoscópico", "Grampeador Circular", "Kit de Sutura Endoscópica Digestiva", "Prótese Esofágica", "Stent Biliar", "Stent Digestivo"], "Linha Coloproctológica": ["Grampeador Circular Transanal", "Kit de Hemorroidectomia", "Malha de Fixação Retal", "Sistema PPH"], "Linha Ginecológica": ["Cateter de Balão Uterino", "DIU", "Malha de Correção de Prolapso", "Sling Vaginal", "Tela de Sustentação Pélvica"], "Linha Obstétrica": ["Cateter de Balão de Bakri", "Kit de Parto", "Vácuo Extrator"], "Linha Mastologia": ["Expansor de Tecido Mamário", "Fio Guia para Localização Mamária", "Marcador de Biópsia Mamária", "Prótese Mamária"], "Linha Plástica": ["Ácido Hialurônico Cirúrgico", "Expansor de Pele", "Fio de Sustentação (PDO)", "Prótese de Silicone", "Tela de Reconstrução"], "Linha Oftalmológica": ["Anel de Tensão Capsular", "Lente Intraocular (LIO)", "Óleo de Silicone Oftálmico", "Tampão de Silicone", "Viscoelástico Oftálmico"], "Linha Otorrinolaringológica": ["Implante Coclear", "Prótese Ossicular", "Stent Sinusal", "Tubo de Ventilação Timpânica"], "Linha Cabeça e Pescoço": ["Placa de Reconstrução Mandibular", "Prótese de Laringe", "Retalho Microcirúrgico — Kit", "Sistema de Fixação Maxilofacial"], "Linha Bucomaxilofacial": ["Fio de Sutura Intraoral", "Mini Placa de Titânio", "Parafuso de Fixação Maxilofacial", "Placa de Reconstrução Facial"], "Linha Pediátrica": ["Cateter Pediátrico", "Fixador Externo Pediátrico", "Prótese Pediátrica", "Válvula de Hidrocefalia Pediátrica"], "Linha Cirurgia da Mão": ["Âncora de Sutura para Mão", "Fio de Kirschner", "Miniplaca de Fixação", "Parafuso de Mini Fragmento", "Prótese de Dedo"], "Linha Dermatológica": ["Fio de Sutura Dérmica", "Substituto de Pele", "Tela de Regeneração Dérmica"], "Linha Transplante": ["Kit de Perfusão de Órgãos", "Solução de Preservação de Órgãos", "Sistema de Perfusão Extracorpórea"]};
+
+// ─── SUGESTÕES DE PROCEDIMENTO POR TIPO DE CIRURGIA ───
+const PROCEDIMENTOS_MAP = {"Cardíaca": ["Revascularização do Miocárdio (RVM)", "Troca Valvar Aórtica", "Troca Valvar Mitral", "Implante de Marca-passo", "Ablação por Cateter", "Correção de Aneurisma de Aorta"], "Endovascular": ["Angioplastia Endovascular", "Implante de Endoprótese Aórtica", "Embolização Endovascular", "Trombectomia Mecânica"], "Neuro": ["Craniotomia", "Clipagem de Aneurisma Cerebral", "Derivação Ventrículo-Peritoneal (DVP)", "Ressecção de Tumor Cerebral", "Artrodese de Coluna", "Descompressão de Hérnia de Disco"], "Periférica": ["Angioplastia Periférica", "Trombectomia Periférica", "Fasciotomia", "Amputação de Membro"], "Urologia": ["Nefrolitotripsia Percutânea", "Ressecção Transuretral de Próstata (RTU)", "Prostatectomia Radical", "Nefrectomia", "Implante de Prótese Peniana"], "Nefro": ["Fístula Arteriovenosa para Hemodiálise", "Implante de Cateter para Diálise Peritoneal", "Transplante Renal"], "Biópsia": ["Biópsia de Mama", "Biópsia Renal", "Biópsia Hepática", "Biópsia Prostática"], "Ortopédica": ["Artroplastia de Quadril", "Artroplastia de Joelho", "Artroscopia de Joelho", "Artrodese de Coluna", "Osteossíntese"], "Traumatológica": ["Redução de Fratura", "Fixação Externa", "Osteossíntese de Fratura", "Amputação Traumática"], "Cirurgia Geral": ["Colecistectomia", "Apendicectomia", "Herniorrafia", "Laparotomia Exploradora"], "Vascular": ["Revascularização Vascular Periférica", "Endarterectomia de Carótida", "Bypass Vascular", "Varizes — Safenectomia"], "Torácica": ["Toracotomia", "Lobectomia Pulmonar", "Pleurodese", "Drenagem Torácica"], "Cardiovascular": ["Cirurgia de Revascularização Cardiovascular", "Correção de Aneurisma", "Troca Valvar"], "Oncológica": ["Ressecção de Tumor", "Mastectomia Oncológica", "Linfadenectomia", "Quimioterapia Intraoperatória"], "Bariátrica": ["Gastroplastia (Bypass Gástrico)", "Sleeve Gástrico", "Banda Gástrica Ajustável"], "Aparelho Digestivo": ["Gastrectomia", "Colectomia", "Esofagectomia", "Endoscopia Digestiva Terapêutica"], "Coloproctológica": ["Hemorroidectomia", "Retossigmoidectomia", "Fistulectomia Anal", "Colonoscopia Terapêutica"], "Ginecológica": ["Histerectomia", "Miomectomia", "Videolaparoscopia Ginecológica", "Correção de Prolapso Genital"], "Obstétrica": ["Cesariana", "Curetagem Uterina", "Laqueadura Tubária"], "Mastologia": ["Mastectomia", "Quadrantectomia", "Biópsia de Linfonodo Sentinela", "Reconstrução Mamária"], "Plástica": ["Abdominoplastia", "Mamoplastia", "Rinoplastia", "Blefaroplastia", "Reconstrução com Retalho"], "Oftalmológica": ["Facectomia com Implante de LIO", "Vitrectomia", "Transplante de Córnea", "Cirurgia de Glaucoma"], "Otorrinolaringológica": ["Septoplastia", "Amigdalectomia", "Timpanoplastia", "Implante Coclear"], "Cabeça e Pescoço": ["Tireoidectomia", "Esvaziamento Cervical", "Ressecção de Tumor de Cabeça e Pescoço"], "Bucomaxilofacial": ["Cirurgia Ortognática", "Redução de Fratura Facial", "Exodontia de Terceiros Molares"], "Pediátrica": ["Herniorrafia Pediátrica", "Correção de Criptorquidia", "Apendicectomia Pediátrica"], "Cirurgia da Mão": ["Liberação de Túnel do Carpo", "Tenorrafia", "Artrodese de Mão", "Reimplante Digital"], "Dermatológica": ["Exérese de Lesão de Pele", "Enxerto de Pele", "Cirurgia Micrográfica de Mohs"], "Transplante": ["Transplante Renal", "Transplante Hepático", "Transplante Cardíaco"]};
+
+function atualizarSugestoesProcedimento() {
+    const tipoEl = document.getElementById('f-tipo-cirurgia');
+    const sel = document.getElementById('f-procedimento-sugestoes');
+    if (!sel) return;
+    const tipo = tipoEl ? tipoEl.value : '';
+    sel.innerHTML = '<option value="">Sugestões (selecione o Tipo de Cirurgia)</option>';
+    if (tipo && PROCEDIMENTOS_MAP[tipo]) {
+        PROCEDIMENTOS_MAP[tipo].forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p; opt.textContent = p;
+            sel.appendChild(opt);
+        });
+    }
+}
+document.getElementById('f-tipo-cirurgia')?.addEventListener('change', atualizarSugestoesProcedimento);
 
 function atualizarSubgrupos(valorAtual, valorAtual2) {
     const linha = document.getElementById('f-linha').value;
