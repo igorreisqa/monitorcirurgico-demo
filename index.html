@@ -5905,12 +5905,12 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
                     <input class="form-input" id="f-nf" placeholder="Ex: 000123" oninput="autoTransitoNF(this.value)">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">💰 Valor (R$)</label>
+                    <label class="form-label" id="label-valor">💰 Valor (R$)</label>
                     <input class="form-input" id="f-valor" type="number" step="0.01" min="0" placeholder="Ex: 1500.00">
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Data de Emissão NF</label>
+                    <label class="form-label" id="label-nf-data">Data de Emissão NF</label>
                     <input class="form-input" type="date" id="f-nf-data">
                 </div>
                 <div class="form-group full" id="g-coleta-urgente" style="display:none;">
@@ -7474,7 +7474,7 @@ function _agruparPorFilialWhatsApp(lista) {
     return resultado;
 }
 
-async function exportarWhatsApp() {
+async function exportarWhatsApp(filtro) {
     if (!(await confirmarFilialAntesDeCobrar())) return;
     await verificarPromocaoRetirada();
 
@@ -7485,7 +7485,10 @@ async function exportarWhatsApp() {
         return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR');
     };
 
-    var cirurgias = procedimentos.filter(function(p) {
+    // filtro: 'retirada' -> só Aguardando Retirada, 'ficha' -> só Aguardando
+    // Ficha OPME, undefined/'todos' -> os dois juntos (comportamento padrão
+    // do botão principal "Cobrar via WhatsApp").
+    var cirurgias = filtro === 'ficha' ? [] : procedimentos.filter(function(p) {
         if (_ehColeta(p) || p.isColeta) return false;
         return p.status === 'a_retirar';
     });
@@ -7494,7 +7497,7 @@ async function exportarWhatsApp() {
     // Fichas OPME cujo material já voltou ao estoque, mas a ficha em si ainda
     // não foi entregue — cobrada junto, num bloco separado pra não confundir
     // com pendência de retirada física.
-    var fichasPendentes = procedimentos.filter(function(p) {
+    var fichasPendentes = filtro === 'retirada' ? [] : procedimentos.filter(function(p) {
         if (_ehColeta(p) || p.isColeta) return false;
         return p.status === 'aguardando_ficha_opme';
     });
@@ -9439,6 +9442,27 @@ async function saveProcedure(e) {
         return;
     }
 
+    // Validação: status Em Trânsito e Em Procedimento também exigem Valor e Data de Emissão da NF
+    if (status === 'em_transito' || status === 'andamento') {
+        const nomeStatusNf = status === 'andamento' ? 'Em Procedimento' : 'Em Trânsito';
+        const valorEl = document.getElementById('f-valor');
+        if (!valorEl.value.trim()) {
+            valorEl.style.borderColor = '#f97316';
+            valorEl.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.3)';
+            valorEl.focus();
+            alert('⚠️ Informe o Valor (R$) da Nota Fiscal para o status "' + nomeStatusNf + '"!');
+            return;
+        }
+        const nfDataEl = document.getElementById('f-nf-data');
+        if (!nfDataEl.value) {
+            nfDataEl.style.borderColor = '#f97316';
+            nfDataEl.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.3)';
+            nfDataEl.focus();
+            alert('⚠️ Informe a Data de Emissão da NF para o status "' + nomeStatusNf + '"!');
+            return;
+        }
+    }
+
     // Validação: status A Retirar, Em Procedimento e Retirar Volumes Urgentes exigem data de retirada
     const retirada = document.getElementById('f-retirada').value;
     const _isAgendador = window._currentUser && window._currentUser.role === 'agendador';
@@ -10307,9 +10331,14 @@ document.getElementById('f-status').addEventListener('change', function() {
     const lbl = document.getElementById('label-retirada');
     const grpColeta = document.getElementById('g-coleta-urgente');
 
-    // NF obrigatória (com asterisco) para Em Trânsito e Em Procedimento
+    // NF, Valor e Data de Emissão obrigatórios (com asterisco) para Em Trânsito e Em Procedimento
+    const exigeNf = (val === 'em_transito' || val === 'andamento');
     const lblNf = document.getElementById('label-nf');
-    if (lblNf) lblNf.textContent = (val === 'em_transito' || val === 'andamento') ? 'Nº Nota Fiscal *' : 'Nº Nota Fiscal';
+    if (lblNf) lblNf.textContent = exigeNf ? 'Nº Nota Fiscal *' : 'Nº Nota Fiscal';
+    const lblValor = document.getElementById('label-valor');
+    if (lblValor) lblValor.textContent = exigeNf ? '💰 Valor (R$) *' : '💰 Valor (R$)';
+    const lblNfData = document.getElementById('label-nf-data');
+    if (lblNfData) lblNfData.textContent = exigeNf ? 'Data de Emissão NF *' : 'Data de Emissão NF';
 
     // Campos required a desativar no modo coleta
     const reqIds = ['f-status','f-data','f-medico','f-vendedor','f-hospital','f-convenio','f-paciente','f-procedimento','f-linha','f-subgrupo'];
@@ -10925,7 +10954,7 @@ function atualizarBannerPendencias() {
                 <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.06em;">AGUARDANDO RETIRADA</div>
                 <div style="font-size:0.72rem;opacity:0.85;margin-top:1px;">${retiradas.length} material(is) com retirada vencida</div>
             </div>
-            <button onclick="exportarWhatsApp()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.05em;">💬 Cobrar</button>
+            <button onclick="exportarWhatsApp('retirada')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.05em;">💬 Cobrar</button>
         </div>`;
     }
 
@@ -10937,7 +10966,7 @@ function atualizarBannerPendencias() {
                 <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.06em;">AGUARDANDO FICHA OPME</div>
                 <div style="font-size:0.72rem;opacity:0.85;margin-top:1px;">${fichasOpmePendentes.length} ficha(s) pendente(s) de entrega ao estoque</div>
             </div>
-            <button onclick="exportarWhatsApp()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.05em;">💬 Cobrar</button>
+            <button onclick="exportarWhatsApp('ficha')" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.05em;">💬 Cobrar</button>
         </div>`;
     }
 
