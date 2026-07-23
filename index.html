@@ -7544,11 +7544,59 @@ async function exportarWhatsApp() {
     }
 
     linhas.push('');
-    linhas.push('Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
+    if (cirurgias.length > 0) {
+        linhas.push('Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
+    }
+    if (fichasPendentes.length > 0) {
+        linhas.push('Por favor, providencie a entrega da ficha OPME o quanto antes para garantir laudação/faturamento com o cliente.');
+    }
     linhas.push('Qualquer dúvida, é só me chamar! 🙏');
 
     _abrirWhatsApp(linhas.join('\n'));
 }
+
+// ─── COBRANÇA INDIVIDUAL — Aguardando Retirada / Aguardando Ficha OPME ───
+// Mesmo formato da cobrança em lote, mas só para um registro — útil quando
+// só uma pendência específica precisa de um empurrão, sem mandar a lista
+// inteira pro fornecedor/hospital.
+window.cobrarIndividualWhatsApp = async function(docId) {
+    const p = procedimentos.find(x => (x._docId || String(x.id)) === String(docId));
+    if (!p) return;
+    if (!(await confirmarFilialAntesDeCobrar())) return;
+
+    const fmt = function(d) {
+        if (!d) return '—';
+        var s = String(d);
+        var dt = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s);
+        return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR');
+    };
+    const isFicha = p.status === 'aguardando_ficha_opme';
+
+    const linhas = [];
+    linhas.push('Olá! 😊');
+    linhas.push('Segue a pendência do *Monitor Cirúrgico*:');
+    linhas.push('');
+    linhas.push(isFicha
+        ? '📋 *AGUARDANDO FICHA OPME* (material já retirado, falta entregar a ficha ao estoque)'
+        : '📦 *AGUARDANDO RETIRADA* (material ainda não devolvido ao estoque)');
+    linhas.push('');
+    linhas.push('---');
+    linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
+    linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
+    linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
+    linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
+    linhas.push(isFicha
+        ? '📅 *Material retirado em:* ' + fmt(p.dataConfirmacaoRetirada)
+        : '📅 *Data de retirada:* ' + fmt(p.retirada));
+    linhas.push('---');
+    linhas.push('');
+    linhas.push(isFicha
+        ? 'Por favor, providencie a entrega da ficha OPME o quanto antes para garantir laudação/faturamento com o cliente.'
+        : 'Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
+    linhas.push('Qualquer dúvida, é só me chamar! 🙏');
+
+    _abrirWhatsApp(linhas.join('\n'));
+};
 
 
 // ─── PERGUNTA: A FICHA OPME FOI ENTREGUE AO ESTOQUE? ───
@@ -7919,6 +7967,8 @@ function buildCardHTML(proc) {
         // aguardando_ficha_opme: botão de confirmação "Ficha entregue?"
         const fichaOpmeConfBtn = proc.status === 'aguardando_ficha_opme'
             ? `<button class="btn-act" style="background:rgba(168,85,247,0.15);border:1.5px solid #a855f7;color:#a855f7;font-weight:700;animation:pillPulseRetirar 0.8s ease-in-out infinite;" onclick="confirmarFichaOpmeEntregue('${realIndex}')" title="Confirmar se a ficha OPME foi entregue ao estoque">📋 Ficha entregue?</button>` : '';
+        const cobrarIndividualBtn = (proc.status === 'a_retirar' || proc.status === 'aguardando_ficha_opme')
+            ? `<button class="btn-act" style="background:#25d366;border-color:#25d366;color:#fff;" onclick="cobrarIndividualWhatsApp('${realIndex}')" title="Cobrar esta pendência pelo WhatsApp">💬 Cobrar</button>` : '';
         const agendarRetiradaBtn = (proc.status !== 'concluido' && proc.status !== 'cancelado' && proc.status !== 'a_retirar' && proc.status !== 'coleta_urgente')
             ? `<button class="btn-act agendar-retirada" onclick="agendarDataRetirada('${realIndex}')" title="Confirmar data de retirada">✅ Confirmar Retirada</button>` : '';
         const coletaConfRetiradaBtn = (_ehColeta(proc) && proc.status !== 'concluido' && proc.status !== 'cancelado')
@@ -8032,6 +8082,7 @@ function buildCardHTML(proc) {
                 ${agendarRetiradaBtn}
                 ${retirarConfBtn}
                 ${fichaOpmeConfBtn}
+                ${cobrarIndividualBtn}
                 ${coletaConfRetiradaBtn}
                 ${retirarBtn}
                 ${coletaInfoBtn}
@@ -10198,6 +10249,7 @@ function renderTable() {
         if (isRetirar) {
             tdAcoes += '<div style="display:flex;flex-direction:column;gap:4px;">';
             tdAcoes += '<button onclick="confirmarRetiradaCirurgia(\'' + realIndex + '\')" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(249,115,22,0.5);background:rgba(249,115,22,0.1);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#f97316;white-space:nowrap;">📦 Retirou?</button>';
+            tdAcoes += '<button onclick="cobrarIndividualWhatsApp(\'' + realIndex + '\')" style="padding:5px 10px;border-radius:7px;border:none;background:#25d366;font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#fff;white-space:nowrap;">💬 Cobrar</button>';
             tdAcoes += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
             tdAcoes += _lembBtn + _comtBtn;
             tdAcoes += '<button onclick="editProc(\'' + realIndex + '\')" style="flex:1;padding:4px 9px;border-radius:6px;border:1px solid rgba(135,195,150,0.4);background:rgba(255,255,255,0.75);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:var(--text-dim);">✏ Editar</button>';
@@ -10207,6 +10259,7 @@ function renderTable() {
         } else if (isAguardandoFichaOpme) {
             tdAcoes += '<div style="display:flex;flex-direction:column;gap:4px;">';
             tdAcoes += '<button onclick="confirmarFichaOpmeEntregue(\'' + realIndex + '\')" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(168,85,247,0.5);background:rgba(168,85,247,0.1);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#a855f7;white-space:nowrap;">📋 Ficha entregue?</button>';
+            tdAcoes += '<button onclick="cobrarIndividualWhatsApp(\'' + realIndex + '\')" style="padding:5px 10px;border-radius:7px;border:none;background:#25d366;font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#fff;white-space:nowrap;">💬 Cobrar</button>';
             tdAcoes += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
             tdAcoes += _lembBtn + _comtBtn;
             tdAcoes += '<button onclick="editProc(\'' + realIndex + '\')" style="flex:1;padding:4px 9px;border-radius:6px;border:1px solid rgba(135,195,150,0.4);background:rgba(255,255,255,0.75);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:var(--text-dim);">✏ Editar</button>';
@@ -15401,6 +15454,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
           <button class="btn-act" onclick="editProc('${esc(realIndex)}')">✏ Editar</button>
           ${proc.status === 'a_retirar' ? `<button class="btn-act" style="background:rgba(249,115,22,0.15);border:1.5px solid #f97316;color:#f97316;font-weight:700;" onclick="confirmarRetiradaCirurgia('${esc(realIndex)}')">📦 Retirou?</button>` : ''}
           ${proc.status === 'aguardando_ficha_opme' ? `<button class="btn-act" style="background:rgba(168,85,247,0.15);border:1.5px solid #a855f7;color:#a855f7;font-weight:700;" onclick="confirmarFichaOpmeEntregue('${esc(realIndex)}')">📋 Ficha entregue?</button>` : ''}
+          ${(proc.status === 'a_retirar' || proc.status === 'aguardando_ficha_opme') ? `<button class="btn-act" style="background:#25d366;border-color:#25d366;color:#fff;" onclick="cobrarIndividualWhatsApp('${esc(realIndex)}')">💬 Cobrar</button>` : ''}
           <button class="btn-act" style="background:#25d366;border-color:#25d366;" onclick="enviarWhatsAppIndividual('${esc(realIndex)}')">💬 WhatsApp</button>
           <button class="btn-act del" onclick="deleteProc('${esc(realIndex)}')">✕ Excluir</button>
         </div>
