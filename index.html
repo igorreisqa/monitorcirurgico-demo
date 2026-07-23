@@ -923,6 +923,14 @@
                   autoTransitar(p, 'em_transito');
                 }
 
+                // Agendado + NF já emitida → Em Trânsito direto, independente de quantos
+                // dias faltam pra cirurgia (a NF emitida já indica que o material foi
+                // despachado, não precisa esperar a véspera pra promover o status).
+                if (p.status === 'agendado' && p.nf && p.nf.trim()) {
+                  p.status = 'em_transito';
+                  autoTransitar(p, 'agendado');
+                }
+
                 // Agendado: véspera (D-1, aviso antecipado) OU data já chegou/passou
                 // (recuperação de atraso) → Em Separação
                 if (p.status === 'agendado' && p.data && (p.data === amanha || p.data <= hoje)) {
