@@ -7584,7 +7584,7 @@ async function exportarWhatsApp(filtro) {
                 linhas.push('*Nº da Nota Fiscal:* ' + (p.nf || '—'));
                 linhas.push('*Vendedor:* ' + (p.vendedor || '—'));
                 linhas.push('*Data de Cirurgia:* ' + fmt(p.data));
-                linhas.push('*Data de retirada:* ' + fmt(p.retirada));
+                linhas.push('*Data de devolução:* ' + (p.dataConfirmacaoRetirada ? fmt(p.dataConfirmacaoRetirada) : '(quando a devolução ocorrer)'));
             });
         });
         linhas.push('');
@@ -7631,7 +7631,9 @@ window.cobrarIndividualWhatsApp = async function(docId) {
     linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
     linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
     linhas.push('📅 *Data de Cirurgia:* ' + fmt(p.data));
-    linhas.push('📅 *Data de retirada:* ' + fmt(p.retirada));
+    linhas.push(isFicha
+        ? '📅 *Data de devolução:* ' + (p.dataConfirmacaoRetirada ? fmt(p.dataConfirmacaoRetirada) : '(quando a devolução ocorrer)')
+        : '📅 *Data de retirada:* ' + fmt(p.retirada));
     linhas.push('---');
     linhas.push('');
     linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
