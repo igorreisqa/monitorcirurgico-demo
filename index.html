@@ -12,7 +12,19 @@
       var _hostForcaDemo = location.hostname === 'monitorcirurgico-demo.vercel.app';
       if (p.get('demo') === '1' || _hostForcaDemo) document.documentElement.classList.add('modo-demo');
       var saved = localStorage.getItem('gf_branch');
-      if (saved !== 'cgr' && saved !== 'cba' && saved !== 'consolidado') document.documentElement.classList.add('gf-need-branch-picker');
+      // Quem nunca escolheu filial (primeiro acesso, ou storage limpo) cai
+      // direto no Consolidado — quem já escolheu CGR/CBA antes continua na
+      // própria filial normalmente, sem ser sobrescrito. Exceção: quem clicou
+      // em "Trocar unidade" (window._trocarFilial) quer mesmo ver a tela de
+      // escolha de novo, não ser jogado direto pro Consolidado.
+      if (saved !== 'cgr' && saved !== 'cba' && saved !== 'consolidado') {
+        if (localStorage.getItem('gf_force_picker') === '1') {
+          localStorage.removeItem('gf_force_picker');
+          document.documentElement.classList.add('gf-need-branch-picker');
+        } else {
+          localStorage.setItem('gf_branch', 'consolidado');
+        }
+      }
       window._escolherFilial = function(code) {
         localStorage.setItem('gf_branch', code);
         location.reload();
@@ -90,6 +102,7 @@
       }
       window._trocarFilial = function() {
         localStorage.removeItem('gf_branch');
+        localStorage.setItem('gf_force_picker', '1');
         sessionStorage.removeItem(brKey('nomeComercial'));
         sessionStorage.removeItem(brKey('comercialModoCompleto'));
         location.reload();
