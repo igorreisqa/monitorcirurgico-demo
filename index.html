@@ -4749,6 +4749,10 @@ html.modo-demo .header-logo-bg{display:none!important}
 html.modo-demo .login-logo-img{display:none!important}
 html.modo-demo .marca-gf-brand{display:none!important}
 html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.55em;font-weight:600;opacity:0.65;text-transform:none;letter-spacing:normal}
+/* Demo: só o botão de demonstração. Produção: só o login normal. */
+html.modo-demo #loginForm .login-group,
+html.modo-demo #loginForm #loginBtn{display:none!important}
+html:not(.modo-demo) #loginBtnDemo{display:none!important}
 .header-text h1{color:#2a9fbf!important;-webkit-text-fill-color:#2a9fbf!important}
 .header-text p{font-size:.82rem!important;letter-spacing:.12em!important;line-height:1.35!important;color:#56a884!important;max-width:560px}
 .header > div:last-child{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:14px!important;flex-wrap:wrap!important}
