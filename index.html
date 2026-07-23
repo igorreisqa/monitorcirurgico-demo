@@ -186,7 +186,7 @@
         const labels = {
           a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação',
           agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado',
-          reagendado:'Reagendado', a_retirar:'Aguardando Retirada',
+          reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME',
           urgencia:'URGÊNCIA', coleta_urgente:'Coleta Prioritária'
         };
         const de   = labels[statusAnterior] || statusAnterior;
@@ -207,7 +207,7 @@
         const labels = {
           a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação',
           agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado',
-          reagendado:'Reagendado', a_retirar:'Aguardando Retirada',
+          reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME',
           urgencia:'URGÊNCIA', coleta_urgente:'Coleta Prioritária'
         };
         // Push notification
@@ -279,6 +279,7 @@
           { key:'em_transito',    label:'🚚 Em Trânsito',         cor:'#8b5cf6' },
           { key:'andamento',      label:'🔬 Em Procedimento',     cor:'#10b981' },
           { key:'a_retirar',      label:'📦 A Retirar',           cor:'#f97316' },
+          { key:'aguardando_ficha_opme', label:'📋 Aguard. Ficha OPME', cor:'#a855f7' },
           { key:'reagendado',     label:'↺ Reagendados',          cor:'#a78bfa' },
           { key:'concluido',      label:'✅ Concluídos',          cor:'#22c55e' },
           { key:'cancelado',      label:'❌ Cancelados',           cor:'#6b7280' },
@@ -438,7 +439,7 @@
         if (!listaEl) return;
         const dados = window.procedimentos || [];
         const meus = dados.filter(p => p.cadastradoPor === window._currentUser.uid);
-        const labels = { agendado:'Agendado', preparacao:'Em Separação', em_transito:'Em Trânsito', andamento:'Em Procedimento', concluido:'Concluído', a_agendar:'Autorizado', a_retirar:'Aguardando Retirada', cancelado:'Cancelado' };
+        const labels = { agendado:'Agendado', preparacao:'Em Separação', em_transito:'Em Trânsito', andamento:'Em Procedimento', concluido:'Concluído', a_agendar:'Autorizado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME', cancelado:'Cancelado' };
         listaEl.innerHTML = meus.length === 0
           ? '<div class="agendador-empty">Nenhuma cirurgia cadastrada ainda.</div>'
           : `<table class="agendador-table"><thead><tr><th>Paciente</th><th>Hospital</th><th>Cirurgião</th><th>Data</th><th>Status</th><th></th></tr></thead><tbody>${
@@ -478,15 +479,26 @@
           ov.remove();
           const idx = window.procedimentos.findIndex(p => p._docId === docId);
           if (idx === -1) return;
-          mostrarChecklist(window.procedimentos[idx], 'concluido', async () => {
-            window.procedimentos[idx].status = 'concluido';
+          const salvarStatusAgendador = async (novoStatus) => {
+            window.procedimentos[idx].status = novoStatus;
+            window.procedimentos[idx].retiradaConfirmada = true;
             window.renderAgendadorLista();
             const conn = window._resolverFilial(window.procedimentos[idx]);
             if (!conn) { alert('❌ Não foi possível determinar a unidade deste registro. Nada foi salvo.'); return; }
             const { doc: docFn, setDoc: sd } = conn.fbModules;
             try { await sd(docFn(conn.db, conn.COLL, docId), { ...window.procedimentos[idx] }); }
             catch(e) { alert('Erro ao confirmar: ' + e.message); }
-          }, {blocking:false});
+          };
+          const fichaEntregue = window.perguntarFichaOpmeEntregue
+            ? await window.perguntarFichaOpmeEntregue(window.procedimentos[idx])
+            : 'sim';
+          if (fichaEntregue === 'sim') {
+            mostrarChecklist(window.procedimentos[idx], 'concluido', async () => {
+              await salvarStatusAgendador('concluido');
+            }, {blocking:false});
+          } else {
+            await salvarStatusAgendador('aguardando_ficha_opme');
+          }
         };
       };
 
@@ -886,7 +898,7 @@
                 }
 
                 // NF emitida no mesmo dia da cirurgia (sem janela de trânsito) → Em Procedimento direto
-                if (!['andamento','a_retirar','concluido','cancelado','urgencia','coleta_urgente'].includes(p.status)
+                if (!['andamento','a_retirar','aguardando_ficha_opme','concluido','cancelado','urgencia','coleta_urgente'].includes(p.status)
                     && p.data && p.nfData && p.nfData === p.data && p.data <= hoje) {
                   const statusAnterior = p.status;
                   p.status = 'andamento';
@@ -923,7 +935,7 @@
                 // Data de retirada já chegou ou passou → Aguardando Retirada (automático,
                 // recupera atraso independente de qual status intermediário o registro
                 // estava parado)
-                if (!['a_retirar','concluido','cancelado','urgencia','coleta_urgente'].includes(p.status)
+                if (!['a_retirar','aguardando_ficha_opme','concluido','cancelado','urgencia','coleta_urgente'].includes(p.status)
                     && (p.retirada || p.dataRetirar) && (p.retirada || p.dataRetirar) <= hoje) {
                   const prev = p.status;
                   p.status = 'a_retirar';
@@ -1541,6 +1553,7 @@
         .proc-card.status-reagendado { border-top: 2px solid #a78bfa; }
         .proc-card.status-em_transito { border-top: 2px solid #0ea5e9; }
         .proc-card.status-a_retirar { border-top: 2px solid #f97316; }
+        .proc-card.status-aguardando_ficha_opme { border-top: 2px solid #a855f7; }
         @keyframes cardPiscarUrgencia {
             0%, 100% { box-shadow: none; border-color: transparent; }
             50% { box-shadow: 0 0 18px rgba(255,0,0,0.6); border-color: rgba(255,0,0,0.8); }
@@ -1628,6 +1641,7 @@
         .pill-cancelado { background: rgba(239,68,68,0.08); color: #f87171; border: 1px solid rgba(239,68,68,0.25); text-decoration: line-through; }
         .pill-reagendado { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.4); animation: pillPulseReagendado 0.8s ease-in-out infinite; }
         .pill-a_retirar { background: rgba(249,115,22,0.15); color: #f97316; border: 1px solid rgba(249,115,22,0.4); animation: pillPulseRetirar 0.8s ease-in-out infinite; }
+        .pill-aguardando_ficha_opme { background: rgba(168,85,247,0.15); color: #a855f7; border: 1px solid rgba(168,85,247,0.4); animation: pillPulseRetirar 0.8s ease-in-out infinite; }
         .pill-coleta_urgente {
             background: rgba(99,102,241,0.15);
             color: #818cf8;
@@ -2342,6 +2356,7 @@
 
         .proc-table tbody tr.row-a_agendar { border-left: 3px solid #06b6d4; }
         .proc-table tbody tr.row-a_retirar { border-left: 3px solid #f97316; background: rgba(249,115,22,0.04); }
+        .proc-table tbody tr.row-aguardando_ficha_opme { border-left: 3px solid #a855f7; background: rgba(168,85,247,0.04); }
         .proc-table tbody tr.row-andamento { border-left: 3px solid var(--red); }
         .proc-table tbody tr.row-preparacao { border-left: 3px solid var(--yellow); }
         .proc-table tbody tr.row-agendado { border-left: 3px solid var(--green); }
@@ -5013,6 +5028,10 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
             <div class="stat-label">📦 A Retirar</div>
             <div class="stat-value" id="stat-a_retirar">0</div>
         </div>
+        <div class="stat-card" id="stat-card-aguardando_ficha_opme" style="border-top:3px solid #a855f7;">
+            <div class="stat-label">📋 Aguard. Ficha OPME</div>
+            <div class="stat-value" id="stat-aguardando_ficha_opme">0</div>
+        </div>
         <div class="stat-card" id="stat-card-coleta_urgente" style="border-top:3px solid #6366f1;">
             <div class="stat-label">✈️ Coleta Prioritária</div>
             <div class="stat-value" id="stat-coleta_urgente">0</div>
@@ -5070,6 +5089,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
         <button class="filter-btn" data-filter="reagendado">Reagendados</button>
         <button class="filter-btn" data-filter="reagendado_vencido" style="color:#ef4444;border-color:rgba(239,68,68,0.5);">↺ Atrasados</button>
         <button class="filter-btn" data-filter="a_retirar">📦 Aguardando Retirada</button>
+        <button class="filter-btn" data-filter="aguardando_ficha_opme">📋 Aguardando Ficha OPME</button>
         <button class="filter-btn" data-filter="urgencia" style="color:#ff3333;border-color:rgba(255,0,0,0.5);">🚨 Urgência</button>
         <input class="search-box" type="text" id="searchBox" placeholder="Buscar hospital, médico, paciente, NF...">
         <div id="vendedor-filter-wrap">
@@ -7186,12 +7206,12 @@ function setPisca(id, anim, ativo) {
 
 function updateStats() {
     document.getElementById('stat-total').textContent = procedimentos.length;
-    ['a_agendar','andamento','preparacao','agendado','em_transito','concluido','cancelado','reagendado','a_retirar','urgencia','coleta_urgente'].forEach(s => {
+    ['a_agendar','andamento','preparacao','agendado','em_transito','concluido','cancelado','reagendado','a_retirar','aguardando_ficha_opme','urgencia','coleta_urgente'].forEach(s => {
         const el = document.getElementById('stat-' + s); if (el) el.textContent = procedimentos.filter(p => p.status === s).length;
     });
 
     // Limpar todas as animações antes de reaplicar
-    ['a_agendar','andamento','preparacao','agendado','em_transito','reagendado','a_retirar','urgencia','coleta_urgente'].forEach(s => {
+    ['a_agendar','andamento','preparacao','agendado','em_transito','reagendado','a_retirar','aguardando_ficha_opme','urgencia','coleta_urgente'].forEach(s => {
         const el = document.getElementById('stat-card-' + s);
         if (el) el.style.animation = '';
     });
@@ -7209,6 +7229,11 @@ function updateStats() {
     const temRetirar = procedimentos.some(p => p.status === 'a_retirar');
     temRetirar ? startRetirarSound() : stopRetirarSound();
     setPisca('stat-card-a_retirar', 'statPiscarRetirar 0.8s ease-in-out infinite', temRetirar);
+
+    // Aguardando Ficha OPME — qualquer registro (mesmo pulso visual do
+    // Aguardando Retirada, sem som próprio pra não duplicar alerta sonoro)
+    const temFichaOpmePendente = procedimentos.some(p => p.status === 'aguardando_ficha_opme');
+    setPisca('stat-card-aguardando_ficha_opme', 'statPiscarRetirar 0.8s ease-in-out infinite', temFichaOpmePendente);
 
     // Em Procedimento (andamento) — qualquer registro
     const temAndamento = procedimentos.some(p => p.status === 'andamento');
@@ -7309,7 +7334,7 @@ function updateStats() {
 let _somGeralInterval = null;
 let _somGeralAtivo = false;
 function _iniciarSomGeral(procs) {
-    const statusAtivos = ['a_agendar','andamento','preparacao','agendado','em_transito','reagendado','a_retirar','urgencia','coleta_urgente'];
+    const statusAtivos = ['a_agendar','andamento','preparacao','agendado','em_transito','reagendado','a_retirar','aguardando_ficha_opme','urgencia','coleta_urgente'];
     const temQualquer = procs.some(p => statusAtivos.includes(p.status));
     if (temQualquer && !_somGeralAtivo) {
         _somGeralAtivo = true;
@@ -7389,36 +7414,121 @@ async function exportarWhatsApp() {
     });
     cirurgias.sort(function(a,b) { return (a.retirada||'').localeCompare(b.retirada||''); });
 
-    if (cirurgias.length === 0) {
-        alert('✅ Sem pendências!\n\nNenhum material aguardando retirada.');
+    // Fichas OPME cujo material já voltou ao estoque, mas a ficha em si ainda
+    // não foi entregue — cobrada junto, num bloco separado pra não confundir
+    // com pendência de retirada física.
+    var fichasPendentes = procedimentos.filter(function(p) {
+        if (_ehColeta(p) || p.isColeta) return false;
+        return p.status === 'aguardando_ficha_opme';
+    });
+    fichasPendentes.sort(function(a,b) { return (a.dataConfirmacaoRetirada||'').localeCompare(b.dataConfirmacaoRetirada||''); });
+
+    if (cirurgias.length === 0 && fichasPendentes.length === 0) {
+        alert('✅ Sem pendências!\n\nNenhum material aguardando retirada e nenhuma ficha OPME pendente.');
         return;
     }
 
     var linhas = [];
     linhas.push('Olá! 😊');
-    linhas.push('Segue as pendências do *Monitor Cirúrgico* que ainda não foram devolvidos ao estoque:');
-    _agruparPorFilialWhatsApp(cirurgias).forEach(function(grupo) {
-        if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
-        grupo.itens.forEach(function(p) {
-            linhas.push('');
-            linhas.push('---');
-            linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
-            linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
-            linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
-            linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
-            linhas.push('📅 *Data de retirada:* ' + fmt(p.retirada));
+    linhas.push('Segue as pendências do *Monitor Cirúrgico*:');
+
+    if (cirurgias.length > 0) {
+        linhas.push('');
+        linhas.push('📦 *AGUARDANDO RETIRADA* (material ainda não devolvido ao estoque)');
+        _agruparPorFilialWhatsApp(cirurgias).forEach(function(grupo) {
+            if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
+            grupo.itens.forEach(function(p) {
+                linhas.push('');
+                linhas.push('---');
+                linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
+                linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
+                linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
+                linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
+                linhas.push('📅 *Data de retirada:* ' + fmt(p.retirada));
+            });
         });
-    });
+        linhas.push('');
+        linhas.push('---');
+        linhas.push('Total: *' + cirurgias.length + ' pendência(s) de retirada*');
+    }
+
+    if (fichasPendentes.length > 0) {
+        linhas.push('');
+        linhas.push('📋 *AGUARDANDO FICHA OPME* (material já retirado, falta entregar a ficha ao estoque)');
+        _agruparPorFilialWhatsApp(fichasPendentes).forEach(function(grupo) {
+            if (grupo.label) { linhas.push(''); linhas.push('🏙️ *' + grupo.label + '*'); }
+            grupo.itens.forEach(function(p) {
+                linhas.push('');
+                linhas.push('---');
+                linhas.push('👤 *Paciente:* ' + (p.paciente || '—'));
+                linhas.push('🏥 *Hospital:* ' + (p.hospital || '—'));
+                linhas.push('🧾 *Nº da Nota Fiscal:* ' + (p.nf || '—'));
+                linhas.push('🙍 *Vendedor:* ' + (p.vendedor || '—'));
+                linhas.push('📅 *Material retirado em:* ' + fmt(p.dataConfirmacaoRetirada));
+            });
+        });
+        linhas.push('');
+        linhas.push('---');
+        linhas.push('Total: *' + fichasPendentes.length + ' ficha(s) OPME pendente(s)*');
+    }
+
     linhas.push('');
-    linhas.push('---');
-    linhas.push('Total: *' + cirurgias.length + ' pendência(s)*');
-    linhas.push('');
-    linhas.push('Por favor, providencie a devolução o quanto antes para garantir a disponibilidade dos produtos no estoque.');
+    linhas.push('Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
     linhas.push('Qualquer dúvida, é só me chamar! 🙏');
 
     _abrirWhatsApp(linhas.join('\n'));
 }
 
+
+// ─── PERGUNTA: A FICHA OPME FOI ENTREGUE AO ESTOQUE? ───
+// Disparada sempre que o material físico é confirmado como retirado — se a
+// ficha ainda não foi entregue, o registro fica no novo status "Aguardando
+// Ficha OPME" em vez de ir direto para Concluído, pra não perder o rastro
+// de que falta cobrar a ficha de volta.
+window.perguntarFichaOpmeEntregue = function(proc) {
+    const antigo = document.getElementById('modalConfFichaOpme');
+    if (antigo) antigo.remove();
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.id = 'modalConfFichaOpme';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px;';
+        overlay.innerHTML =
+            '<div style="background:var(--surface,#fff);border:1px solid var(--border);border-top:4px solid #a855f7;border-radius:16px;padding:28px 26px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.35);">' +
+                '<div style="font-family:var(--mono);font-size:0.82rem;font-weight:700;letter-spacing:0.08em;color:#a855f7;text-transform:uppercase;margin-bottom:18px;">📋 Ficha OPME</div>' +
+                '<div style="margin-bottom:18px;padding:12px 14px;background:rgba(168,85,247,0.06);border-radius:10px;border:1px solid rgba(168,85,247,0.2);">' +
+                    '<div style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:0.95rem;color:var(--text,#111);margin-bottom:4px;">' + (proc.paciente||'—') + '</div>' +
+                    '<div style="font-family:var(--mono);font-size:0.73rem;color:var(--text-dim,#6b7280);">' + (proc.hospital||'—') + '</div>' +
+                '</div>' +
+                '<div style="font-family:var(--mono);font-size:0.78rem;color:var(--text-dim,#6b7280);margin-bottom:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">A ficha OPME preenchida já foi entregue ao estoque?</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button id="btnFichaOpmeSim" style="flex:1;padding:13px;border-radius:10px;border:2px solid #4db87a;background:#4db87a;color:#fff;font-family:var(--mono);font-size:0.9rem;font-weight:700;cursor:pointer;">✅ SIM</button>' +
+                    '<button id="btnFichaOpmeNao" style="flex:1;padding:13px;border-radius:10px;border:2px solid #a855f7;background:#a855f7;color:#fff;font-family:var(--mono);font-size:0.9rem;font-weight:700;cursor:pointer;">❌ NÃO</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector('#btnFichaOpmeSim').onclick = () => { overlay.remove(); resolve('sim'); };
+        overlay.querySelector('#btnFichaOpmeNao').onclick = () => { overlay.remove(); resolve('nao'); };
+    });
+};
+
+// ─── CONFIRMAR QUE A FICHA OPME (PENDENTE) FOI ENTREGUE ───
+// Finaliza um registro que ficou parado em "Aguardando Ficha OPME" — marca
+// como Concluído assim que a ficha chega ao estoque.
+window.confirmarFichaOpmeEntregue = async function(docId) {
+    const proc = procedimentos.find(p => (p._docId || String(p.id)) === String(docId));
+    if (!proc) return;
+    if (!confirm('Confirma que a ficha OPME foi entregue ao estoque?\n\nIsso vai marcar o registro como Concluído.')) return;
+    mostrarChecklist(proc, 'concluido', async () => {
+        proc.status = 'concluido';
+        try {
+            await fbSaveProc(proc);
+            renderTable && renderTable();
+            renderCards && renderCards();
+            updateStats && updateStats();
+            showSyncToast('✅ Ficha OPME entregue — Concluído!');
+        } catch(e) { alert('Erro ao salvar: ' + e.message); }
+    }, {blocking:false});
+};
 
 // ─── CONFIRMAR RETIRADA — TABELA MONITOR ───
 async function confirmarRetiradaCirurgia(docId) {
@@ -7481,13 +7591,13 @@ async function confirmarRetiradaCirurgia(docId) {
         btnNao.onclick = () => selecionar('nao');
         overlay.querySelector('#btnFecharConfCir').onclick = () => { overlay.remove(); resolve(null); };
 
-        const salvarConfirmacao = async () => {
+        const salvarConfirmacao = async (msgToast) => {
             try {
                 await fbSaveProc(proc);
                 renderTable && renderTable();
                 renderCards && renderCards();
                 updateStats && updateStats();
-                showSyncToast(escolha === 'sim' ? '✅ Retirada confirmada — Concluído!' : '📦 Material ainda não retirado — Aguardando Retirada');
+                showSyncToast(msgToast);
             } catch(e) { alert('Erro ao salvar: ' + e.message); }
             resolve(escolha);
         };
@@ -7496,15 +7606,23 @@ async function confirmarRetiradaCirurgia(docId) {
             if (!escolha) return;
             overlay.remove();
             if (escolha === 'sim') {
-                mostrarChecklist(proc, 'concluido', async () => {
-                    proc.status = 'concluido';
+                const fichaEntregue = await perguntarFichaOpmeEntregue(proc);
+                if (fichaEntregue === 'sim') {
+                    mostrarChecklist(proc, 'concluido', async () => {
+                        proc.status = 'concluido';
+                        proc.retiradaConfirmada = true;
+                        proc.dataConfirmacaoRetirada = todayStr();
+                        await salvarConfirmacao('✅ Retirada confirmada — Concluído!');
+                    }, {blocking:false});
+                } else {
+                    proc.status = 'aguardando_ficha_opme';
                     proc.retiradaConfirmada = true;
                     proc.dataConfirmacaoRetirada = todayStr();
-                    await salvarConfirmacao();
-                }, {blocking:false});
+                    await salvarConfirmacao('📋 Material retirado — Aguardando entrega da Ficha OPME ao estoque');
+                }
             } else {
                 proc.status = 'a_retirar';
-                await salvarConfirmacao();
+                await salvarConfirmacao('📦 Material ainda não retirado — Aguardando Retirada');
             }
         };
     });
@@ -7622,7 +7740,7 @@ function setVendedorFilter(val) {
 }
 
 function statusLabel(s) {
-    return { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' }[s] || s;
+    return { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' }[s] || s;
 }
 
 function renderCards() {
@@ -7723,6 +7841,9 @@ function buildCardHTML(proc) {
         // a_retirar: botão de confirmação "Retirou?"
         const retirarConfBtn = proc.status === 'a_retirar'
             ? `<button class="btn-act" style="background:rgba(249,115,22,0.15);border:1.5px solid #f97316;color:#f97316;font-weight:700;animation:pillPulseRetirar 0.8s ease-in-out infinite;" onclick="confirmarRetiradaCirurgia('${realIndex}')" title="Confirmar se o material foi retirado">📦 Retirou?</button>` : '';
+        // aguardando_ficha_opme: botão de confirmação "Ficha entregue?"
+        const fichaOpmeConfBtn = proc.status === 'aguardando_ficha_opme'
+            ? `<button class="btn-act" style="background:rgba(168,85,247,0.15);border:1.5px solid #a855f7;color:#a855f7;font-weight:700;animation:pillPulseRetirar 0.8s ease-in-out infinite;" onclick="confirmarFichaOpmeEntregue('${realIndex}')" title="Confirmar se a ficha OPME foi entregue ao estoque">📋 Ficha entregue?</button>` : '';
         const agendarRetiradaBtn = (proc.status !== 'concluido' && proc.status !== 'cancelado' && proc.status !== 'a_retirar' && proc.status !== 'coleta_urgente')
             ? `<button class="btn-act agendar-retirada" onclick="agendarDataRetirada('${realIndex}')" title="Confirmar data de retirada">✅ Confirmar Retirada</button>` : '';
         const coletaConfRetiradaBtn = (_ehColeta(proc) && proc.status !== 'concluido' && proc.status !== 'cancelado')
@@ -7835,6 +7956,7 @@ function buildCardHTML(proc) {
                 <button class="btn-act edit" onclick="editProc('${realIndex}')">✏ Editar</button>
                 ${agendarRetiradaBtn}
                 ${retirarConfBtn}
+                ${fichaOpmeConfBtn}
                 ${coletaConfRetiradaBtn}
                 ${retirarBtn}
                 ${coletaInfoBtn}
@@ -8165,12 +8287,12 @@ function renderTimeline() {
     const statusColors = {
         a_agendar:'#06b6d4', agendado:'#4db87a', em_transito:'#6366f1', preparacao:'#d4920a',
         andamento:'#d94f4f', concluido:'#64748b', cancelado:'#f87171',
-        reagendado:'#a78bfa', a_retirar:'#f97316', urgencia:'#ff0000'
+        reagendado:'#a78bfa', a_retirar:'#f97316', aguardando_ficha_opme:'#a855f7', urgencia:'#ff0000'
     };
     const statusNames = {
         a_agendar:'Autorizado', agendado:'Agendado', em_transito:'Em Trânsito', preparacao:'Em Separação',
         andamento:'Em Procedimento', concluido:'Concluído', cancelado:'Cancelado',
-        reagendado:'Reagendado', a_retirar:'A Retirar', urgencia:'🚨 Urgência'
+        reagendado:'Reagendado', a_retirar:'A Retirar', aguardando_ficha_opme:'Ficha OPME', urgencia:'🚨 Urgência'
     };
 
     const miniCards = list.length === 0
@@ -9220,8 +9342,8 @@ async function saveProcedure(e) {
 // ─── CURVA ABC ───
 function renderABC() {
     const list = getFiltered();
-    const statusMap = { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' };
-    const statusColors = { a_agendar:'#06b6d4', andamento:'#ef4444', preparacao:'#f59e0b', agendado:'#10b981', em_transito:'#6366f1', concluido:'#6b7280', cancelado:'#f87171', reagendado:'#a78bfa', a_retirar:'#f97316', urgencia:'#ff0000' };
+    const statusMap = { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' };
+    const statusColors = { a_agendar:'#06b6d4', andamento:'#ef4444', preparacao:'#f59e0b', agendado:'#10b981', em_transito:'#6366f1', concluido:'#6b7280', cancelado:'#f87171', reagendado:'#a78bfa', a_retirar:'#f97316', aguardando_ficha_opme:'#a855f7', urgencia:'#ff0000' };
 
     // Build vendor stats
     const vendorMap = {};
@@ -9737,7 +9859,7 @@ function renderColetaView() {
             const corRet = vencida ? '#ff3333' : (ehHoje ? '#f97316' : '#818cf8');
             const labelRet = vencida ? '❌ VENCIDA' : (ehHoje ? '⏰ HOJE' : '📅');
             const retFmt = dataRet ? `${labelRet} ${new Date(dataRet+'T00:00:00').toLocaleDateString('pt-BR')}${proc.horaRetirar ? ' · '+proc.horaRetirar : ''}` : '—';
-            const statusMap = {coleta_urgente:'✈️ Aguardando',concluido:'✔️ Concluído',cancelado:'❌ Cancelado',a_retirar:'📦 A Retirar'};
+            const statusMap = {coleta_urgente:'✈️ Aguardando',concluido:'✔️ Concluído',cancelado:'❌ Cancelado',a_retirar:'📦 A Retirar', aguardando_ficha_opme:'📋 Ficha OPME'};
             const sLabel = statusMap[proc.status] || proc.status;
             const borderTop = vencida ? '#ff3333' : (ehHoje ? '#f97316' : '#6366f1');
             html += `<div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid ${borderTop};border-radius:14px;padding:16px 18px;${vencida||ehHoje?'animation:cardPiscarColeta 0.8s ease-in-out infinite;':''}">
@@ -9814,7 +9936,7 @@ function renderTable() {
     const list = mostrarOcultos
         ? getFiltered().filter(p => p.status === 'concluido' || p.status === 'cancelado')
         : getFiltered().filter(p => p.status !== 'concluido' && p.status !== 'cancelado');
-    const statusMap = { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' };
+    const statusMap = { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' };
 
     // Ordenar por horário (padrão) ou coluna selecionada
     const finalList = [...list].sort((a, b) => {
@@ -9840,7 +9962,7 @@ function renderTable() {
     const statusColors = {
         a_agendar:'#06b6d4', agendado:'#4db87a', em_transito:'#6366f1', preparacao:'#d4920a',
         andamento:'#d94f4f', concluido:'#64748b', cancelado:'#f87171',
-        reagendado:'#a78bfa', a_retirar:'#f97316', urgencia:'#ff0000',
+        reagendado:'#a78bfa', a_retirar:'#f97316', aguardando_ficha_opme:'#a855f7', urgencia:'#ff0000',
         coleta_urgente:'#6366f1'
     };
 
@@ -9855,6 +9977,7 @@ function renderTable() {
     table.querySelector('tbody').innerHTML = finalList.map((proc, idx) => {
         const realIndex = proc._docId || proc.id;
         const isRetirar = (proc.status === 'a_retirar');
+        const isAguardandoFichaOpme = (proc.status === 'aguardando_ficha_opme');
         const dataFmt = proc.data ? new Date(proc.data + 'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) : '—';
         const cor = statusColors[proc.status] || '#94a3b8';
         const anim = pillAnim[proc.status] || '';
@@ -9908,6 +10031,15 @@ function renderTable() {
         if (isRetirar) {
             tdAcoes += '<div style="display:flex;flex-direction:column;gap:4px;">';
             tdAcoes += '<button onclick="confirmarRetiradaCirurgia(\'' + realIndex + '\')" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(249,115,22,0.5);background:rgba(249,115,22,0.1);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#f97316;white-space:nowrap;">📦 Retirou?</button>';
+            tdAcoes += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+            tdAcoes += _lembBtn + _comtBtn;
+            tdAcoes += '<button onclick="editProc(\'' + realIndex + '\')" style="flex:1;padding:4px 9px;border-radius:6px;border:1px solid rgba(135,195,150,0.4);background:rgba(255,255,255,0.75);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:var(--text-dim);">✏ Editar</button>';
+            tdAcoes += '<button onclick="deleteProc(\'' + realIndex + '\')" style="padding:4px 9px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:rgba(255,255,255,0.75);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#d94f4f;">✕</button>';
+            tdAcoes += '</div>';
+            tdAcoes += '</div>';
+        } else if (isAguardandoFichaOpme) {
+            tdAcoes += '<div style="display:flex;flex-direction:column;gap:4px;">';
+            tdAcoes += '<button onclick="confirmarFichaOpmeEntregue(\'' + realIndex + '\')" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(168,85,247,0.5);background:rgba(168,85,247,0.1);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:#a855f7;white-space:nowrap;">📋 Ficha entregue?</button>';
             tdAcoes += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
             tdAcoes += _lembBtn + _comtBtn;
             tdAcoes += '<button onclick="editProc(\'' + realIndex + '\')" style="flex:1;padding:4px 9px;border-radius:6px;border:1px solid rgba(135,195,150,0.4);background:rgba(255,255,255,0.75);font-family:var(--mono);font-size:0.6rem;font-weight:700;cursor:pointer;color:var(--text-dim);">✏ Editar</button>';
@@ -10163,7 +10295,7 @@ function doExport() {
         return;
     }
 
-    const statusMap = { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' };
+    const statusMap = { a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação', agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME', urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária' };
 
     // Sheet 1: Resumo completo
     const resumo = filtered.map(p => ({
@@ -10526,7 +10658,12 @@ function atualizarBannerPendencias() {
         (p.status === 'agendado' || p.status === 'preparacao') && (p.data === hoje || p.data === amanha)
     );
 
-    const total = retiradas.length + coletasAtivas.length + agendadosHojeAmanha.length;
+    // 4. Fichas OPME pendentes de entrega ao estoque (material já retirado)
+    const fichasOpmePendentes = procedimentos.filter(p =>
+        !_ehColeta(p) && p.status === 'aguardando_ficha_opme'
+    );
+
+    const total = retiradas.length + coletasAtivas.length + agendadosHojeAmanha.length + fichasOpmePendentes.length;
 
     let banner = document.getElementById('banner-pendencias');
     if (total === 0) {
@@ -10553,6 +10690,18 @@ function atualizarBannerPendencias() {
             <div style="flex:1;">
                 <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.06em;">AGUARDANDO RETIRADA</div>
                 <div style="font-size:0.72rem;opacity:0.85;margin-top:1px;">${retiradas.length} material(is) com retirada vencida</div>
+            </div>
+            <button onclick="exportarWhatsApp()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.05em;">💬 Cobrar</button>
+        </div>`;
+    }
+
+    // ── Bloco 1b: Aguardando Ficha OPME (material já retirado, falta a ficha) ──
+    if (fichasOpmePendentes.length > 0) {
+        itens += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.15);">
+            <span style="font-size:1.3rem;">📋</span>
+            <div style="flex:1;">
+                <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.06em;">AGUARDANDO FICHA OPME</div>
+                <div style="font-size:0.72rem;opacity:0.85;margin-top:1px;">${fichasOpmePendentes.length} ficha(s) pendente(s) de entrega ao estoque</div>
             </div>
             <button onclick="exportarWhatsApp()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:0.05em;">💬 Cobrar</button>
         </div>`;
@@ -10758,7 +10907,7 @@ window.showSyncToast = showSyncToast;
 // ATALHO STATUS RÁPIDO
 // ════════════════════════════════════════════
 const STATUS_FLOW_QUICK = { a_agendar:'agendado', agendado:'preparacao', preparacao:'em_transito', em_transito:'andamento', andamento:'concluido' };
-const STATUS_LABEL_QUICK = { a_agendar:'Autorizado', agendado:'Agendado', em_transito:'Em Trânsito', preparacao:'Em Separação', andamento:'Em Procedimento', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'A Retirar', urgencia:'🚨 Urgência' };
+const STATUS_LABEL_QUICK = { a_agendar:'Autorizado', agendado:'Agendado', em_transito:'Em Trânsito', preparacao:'Em Separação', andamento:'Em Procedimento', concluido:'Concluído', cancelado:'Cancelado', reagendado:'Reagendado', a_retirar:'A Retirar', aguardando_ficha_opme:'Ficha OPME', urgencia:'🚨 Urgência' };
 
 function buildQuickStatusHTML(proc, realIndex) {
     const btns = [];
@@ -10921,7 +11070,7 @@ function verificarDuplicatas(hospital, medico, data, excludeDocId) {
 function mostrarAviso(dups) {
     const el=document.getElementById('dup-warning-box'); if(!el) return;
     if(dups.length===0){ el.style.display='none'; return; }
-    const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar',urgencia:'Urgência',coleta_urgente:'Coleta Prioritária'};
+    const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar', aguardando_ficha_opme:'Ficha OPME',urgencia:'Urgência',coleta_urgente:'Coleta Prioritária'};
     el.style.display='block';
     el.innerHTML=`<div class="dup-warning-title">⚠️ Possível duplicata (${dups.length})</div>`+dups.map(p=>`<div class="dup-warning-item">${p.hospital} · ${p.medico||'—'} · ${p.data?new Date(p.data+'T00:00:00').toLocaleDateString('pt-BR'):''} · ${sMap[p.status]||p.status}</div>`).join('');
 }
@@ -11115,7 +11264,7 @@ function duplicarProc(docId) {
 function compartilharWhatsApp(docId) {
     const proc=procedimentos.find(p=>(p._docId||String(p.id))===String(docId));
     if(!proc) return;
-    const sMap={a_agendar:'✅ Autorizado',agendado:'📅 Agendado',em_transito:'🚚 Em Trânsito',preparacao:'🔧 Em Separação',andamento:'⚡ Em Procedimento',concluido:'✔️ Concluído',cancelado:'❌ Cancelado',reagendado:'🔄 Reagendado',a_retirar:'📦 Aguard. Retirada',urgencia:'🚨 URGÊNCIA',coleta_urgente:'✈️ Coleta Prioritária'};
+    const sMap={a_agendar:'✅ Autorizado',agendado:'📅 Agendado',em_transito:'🚚 Em Trânsito',preparacao:'🔧 Em Separação',andamento:'⚡ Em Procedimento',concluido:'✔️ Concluído',cancelado:'❌ Cancelado',reagendado:'🔄 Reagendado',a_retirar:'📦 Aguard. Retirada', aguardando_ficha_opme:'📋 Aguard. Ficha OPME',urgencia:'🚨 URGÊNCIA',coleta_urgente:'✈️ Coleta Prioritária'};
     const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—';
     let linhas=[];
     if(proc.status==='coleta_urgente'){
@@ -11165,8 +11314,8 @@ function renderDashboard() {
     const hojeCirg=list.filter(p=>p.data===todayStr()).length;
     const urgentes=list.filter(p=>p.status==='urgencia').length;
     const taxa=total>0?Math.round(list.filter(p=>p.status==='concluido').length/total*100):0;
-    const sColors={a_agendar:'#06b6d4',agendado:'#4db87a',em_transito:'#6366f1',preparacao:'#d4920a',andamento:'#d94f4f',concluido:'#64748b',cancelado:'#f87171',reagendado:'#a78bfa',a_retirar:'#f97316',urgencia:'#ff0000',coleta_urgente:'#818cf8'};
-    const sNames={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar',urgencia:'Urgência',coleta_urgente:'Coleta Prioritária'};
+    const sColors={a_agendar:'#06b6d4',agendado:'#4db87a',em_transito:'#6366f1',preparacao:'#d4920a',andamento:'#d94f4f',concluido:'#64748b',cancelado:'#f87171',reagendado:'#a78bfa',a_retirar:'#f97316', aguardando_ficha_opme:'#a855f7',urgencia:'#ff0000',coleta_urgente:'#818cf8'};
+    const sNames={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar', aguardando_ficha_opme:'Ficha OPME',urgencia:'Urgência',coleta_urgente:'Coleta Prioritária'};
     const sCount={};
     list.forEach(p=>{ sCount[p.status]=(sCount[p.status]||0)+1; });
     const sEntries=Object.entries(sCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
@@ -11303,7 +11452,7 @@ function calNav(dir){ calMonth+=dir; if(calMonth<0){calMonth=11;calYear--;} if(c
 function calDayClick(ds){
     const evts=procedimentos.filter(p=>p.data===ds); if(!evts.length) return;
     const dateFmt=new Date(ds+'T00:00:00').toLocaleDateString('pt-BR');
-    const sN={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar',urgencia:'🚨 Urgência',coleta_urgente:'✈️ Coleta Prioritária'};
+    const sN={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar', aguardando_ficha_opme:'Ficha OPME',urgencia:'🚨 Urgência',coleta_urgente:'✈️ Coleta Prioritária'};
     alert(`📅 ${dateFmt} — ${evts.length} procedimento(s)\n\n`+evts.map(p=>`• ${p.hospital} | ${p.medico||'—'} | ${sN[p.status]||p.status}`).join('\n'));
 }
 
@@ -14941,7 +15090,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
 </style>
 <script>
 (function(){
-  const statusColors = { a_agendar:'#06b6d4', urgencia:'#ff0000', coleta_urgente:'#6366f1', agendado:'#10b981', em_transito:'#6366f1', preparacao:'#f59e0b', andamento:'#ef4444', reagendado:'#a78bfa', a_retirar:'#f97316', concluido:'#6b7280', cancelado:'#f87171' };
+  const statusColors = { a_agendar:'#06b6d4', urgencia:'#ff0000', coleta_urgente:'#6366f1', agendado:'#10b981', em_transito:'#6366f1', preparacao:'#f59e0b', andamento:'#ef4444', reagendado:'#a78bfa', a_retirar:'#f97316', aguardando_ficha_opme:'#a855f7', concluido:'#6b7280', cancelado:'#f87171' };
   window.currentHospitalFilter = 'all';
   window.currentMedicoFilter = 'all';
   window.currentTipoFilter = 'all';
@@ -15080,6 +15229,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
         <div class="card-actions">
           <button class="btn-act" onclick="editProc('${esc(realIndex)}')">✏ Editar</button>
           ${proc.status === 'a_retirar' ? `<button class="btn-act" style="background:rgba(249,115,22,0.15);border:1.5px solid #f97316;color:#f97316;font-weight:700;" onclick="confirmarRetiradaCirurgia('${esc(realIndex)}')">📦 Retirou?</button>` : ''}
+          ${proc.status === 'aguardando_ficha_opme' ? `<button class="btn-act" style="background:rgba(168,85,247,0.15);border:1.5px solid #a855f7;color:#a855f7;font-weight:700;" onclick="confirmarFichaOpmeEntregue('${esc(realIndex)}')">📋 Ficha entregue?</button>` : ''}
           <button class="btn-act" style="background:#25d366;border-color:#25d366;" onclick="enviarWhatsAppIndividual('${esc(realIndex)}')">💬 WhatsApp</button>
           <button class="btn-act del" onclick="deleteProc('${esc(realIndex)}')">✕ Excluir</button>
         </div>
@@ -15142,8 +15292,9 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
       const dia = getDateLabel(proc.data);
       const badgeDia = dia === 'today' ? '<span class="v2-badge today">Hoje</span>' : (dia === 'tomorrow' ? '<span class="v2-badge tomorrow">Amanhã</span>' : '');
       const isRetirar = proc.status === 'a_retirar';
-      const trOnclick = isRetirar ? `confirmarRetiradaCirurgia('${esc(realIndex)}')` : `editProc('${esc(realIndex)}')`;
-      const trTitle = isRetirar ? 'Clique para confirmar retirada' : 'Clique para editar';
+      const isAguardandoFichaOpme = proc.status === 'aguardando_ficha_opme';
+      const trOnclick = isRetirar ? `confirmarRetiradaCirurgia('${esc(realIndex)}')` : isAguardandoFichaOpme ? `confirmarFichaOpmeEntregue('${esc(realIndex)}')` : `editProc('${esc(realIndex)}')`;
+      const trTitle = isRetirar ? 'Clique para confirmar retirada' : isAguardandoFichaOpme ? 'Clique para confirmar entrega da ficha OPME' : 'Clique para editar';
       return `
       <tr class="row-${esc(proc.status)}" onclick="${trOnclick}" style="cursor:pointer;" title="${trTitle}">
         <td><span class="v2-priority-pill ${prioridadeCls}">${esc(prioridade.label)}</span></td>
@@ -15157,7 +15308,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
         <td>${esc(proc.vendedor || '—')}</td>
         <td>${esc(proc.convenio || '—')}</td>
         <td>${sla}${prazo ? `<div style="font-size:.68rem;color:#5d7480;margin-top:4px;">${esc(prazo.label)}</div>` : ''}</td>
-        <td onclick="event.stopPropagation()"><div class="table-actions">${isRetirar ? `<button class="table-btn" style="background:rgba(249,115,22,0.12);border-color:#f97316;color:#f97316;font-weight:700;" onclick="confirmarRetiradaCirurgia('${esc(realIndex)}')">📦 Retirou?</button>` : ''}${['preparacao','agendado','reagendado','andamento'].includes(proc.status)?`<button class="table-btn" style="background:rgba(77,184,122,0.1);border-color:rgba(77,184,122,0.5);color:#4db87a;font-weight:700;" onclick="event.stopPropagation();window.abrirChecklist&&window.abrirChecklist('${esc(realIndex)}')">☑ CK</button>`:''}<button class="table-btn" style="background:rgba(99,102,241,0.1);border-color:rgba(99,102,241,0.5);color:#6366f1;" onclick="event.stopPropagation();window.abrirModalLembrete&&window.abrirModalLembrete('${esc(realIndex)}')">⏰</button><button class="table-btn" style="background:rgba(75,180,210,0.1);border-color:rgba(75,180,210,0.5);color:#4bb4d2;" onclick="event.stopPropagation();window.abrirComentarios&&window.abrirComentarios('${esc(realIndex)}')">💬</button><button class="table-btn t-edit" onclick="editProc('${esc(realIndex)}')">Editar</button><button class="table-btn" onclick="enviarWhatsAppIndividual('${esc(realIndex)}')">WhatsApp</button><button class="table-btn t-del" onclick="deleteProc('${esc(realIndex)}')">Excluir</button></div></td>
+        <td onclick="event.stopPropagation()"><div class="table-actions">${isRetirar ? `<button class="table-btn" style="background:rgba(249,115,22,0.12);border-color:#f97316;color:#f97316;font-weight:700;" onclick="confirmarRetiradaCirurgia('${esc(realIndex)}')">📦 Retirou?</button>` : ''}${isAguardandoFichaOpme ? `<button class="table-btn" style="background:rgba(168,85,247,0.12);border-color:#a855f7;color:#a855f7;font-weight:700;" onclick="confirmarFichaOpmeEntregue('${esc(realIndex)}')">📋 Ficha entregue?</button>` : ''}${['preparacao','agendado','reagendado','andamento'].includes(proc.status)?`<button class="table-btn" style="background:rgba(77,184,122,0.1);border-color:rgba(77,184,122,0.5);color:#4db87a;font-weight:700;" onclick="event.stopPropagation();window.abrirChecklist&&window.abrirChecklist('${esc(realIndex)}')">☑ CK</button>`:''}<button class="table-btn" style="background:rgba(99,102,241,0.1);border-color:rgba(99,102,241,0.5);color:#6366f1;" onclick="event.stopPropagation();window.abrirModalLembrete&&window.abrirModalLembrete('${esc(realIndex)}')">⏰</button><button class="table-btn" style="background:rgba(75,180,210,0.1);border-color:rgba(75,180,210,0.5);color:#4bb4d2;" onclick="event.stopPropagation();window.abrirComentarios&&window.abrirComentarios('${esc(realIndex)}')">💬</button><button class="table-btn t-edit" onclick="editProc('${esc(realIndex)}')">Editar</button><button class="table-btn" onclick="enviarWhatsAppIndividual('${esc(realIndex)}')">WhatsApp</button><button class="table-btn t-del" onclick="deleteProc('${esc(realIndex)}')">Excluir</button></div></td>
       </tr>`;
     }).join('');
     const footer = document.getElementById('tblFooterTotal');
@@ -15691,6 +15842,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
 .black-kanban-col[data-tone="red"]{box-shadow:inset 0 2px 0 #ef4444}
 .black-kanban-col[data-tone="slate"]{box-shadow:inset 0 2px 0 #94a3b8}
 .black-kanban-col[data-tone="orange"]{box-shadow:inset 0 2px 0 #f97316}
+.black-kanban-col[data-tone="purple"]{box-shadow:inset 0 2px 0 #a855f7}
 .black-kanban-title{
   display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;
   font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.92rem;color:#f8fbfd;
@@ -15766,7 +15918,8 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
     { key:'agendado', label:'Pronto Hospital', tone:'green' },
     { key:'andamento', label:'Em Cirurgia', tone:'red' },
     { key:'concluido', label:'Finalizado', tone:'slate' },
-    { key:'a_retirar', label:'A Retirar', tone:'orange' }
+    { key:'a_retirar', label:'A Retirar', tone:'orange' },
+    { key:'aguardando_ficha_opme', label:'Aguard. Ficha OPME', tone:'purple' }
   ];
   function dateBadge(proc){
     if(!proc || !proc.data || typeof getDateLabel !== 'function') return '';
@@ -16440,6 +16593,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
       border-radius: 20px 0 0 20px;
     }
     #table-view .proc-table tbody tr.row-a_retirar::before { background: linear-gradient(180deg, rgba(249,115,22,0.95), rgba(251,146,60,0.85)); }
+    #table-view .proc-table tbody tr.row-aguardando_ficha_opme::before { background: linear-gradient(180deg, rgba(168,85,247,0.95), rgba(196,145,250,0.85)); }
     #table-view .proc-table tbody tr.row-andamento::before { background: linear-gradient(180deg, rgba(239,68,68,0.95), rgba(248,113,113,0.88)); }
     #table-view .proc-table tbody tr.row-preparacao::before { background: linear-gradient(180deg, rgba(245,158,11,0.95), rgba(251,191,36,0.88)); }
     #table-view .proc-table tbody tr.row-agendado::before { background: linear-gradient(180deg, rgba(16,185,129,0.95), rgba(52,211,153,0.85)); }
@@ -17380,7 +17534,7 @@ window.exportarColetasExcel = function() {
     if (!coletas.length) { alert('Nenhuma coleta encontrada.'); return; }
 
     const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '';
-    const statusMap = {coleta_urgente:'✈️ Aguardando', concluido:'✔️ Concluído', cancelado:'❌ Cancelado', a_retirar:'📦 A Retirar'};
+    const statusMap = {coleta_urgente:'✈️ Aguardando', concluido:'✔️ Concluído', cancelado:'❌ Cancelado', a_retirar:'📦 A Retirar', aguardando_ficha_opme:'📋 Ficha OPME'};
 
     const rows = coletas.map(p => ({
         'Status':           statusMap[p.status] || p.status,
@@ -17734,23 +17888,38 @@ window.confirmarItemRetirada = async function(docId, resposta) {
         itemEl.style.pointerEvents = 'none';
     }
 
+    let statusFinal = 'a_retirar'; // 'nao' — mantém a_retirar, não altera nada
     if (resposta === 'sim') {
-        await new Promise(resolve => window.mostrarChecklist(proc, 'concluido', () => {
-            proc.status = 'concluido';
+        const fichaEntregue = window.perguntarFichaOpmeEntregue ? await window.perguntarFichaOpmeEntregue(proc) : 'sim';
+        if (fichaEntregue === 'sim') {
+            await new Promise(resolve => window.mostrarChecklist(proc, 'concluido', () => {
+                proc.status = 'concluido';
+                proc.retiradaConfirmada = true;
+                proc.dataConfirmacaoRetirada = (function(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+                statusFinal = 'concluido';
+                resolve();
+            }, {blocking:false}));
+        } else {
+            proc.status = 'aguardando_ficha_opme';
             proc.retiradaConfirmada = true;
             proc.dataConfirmacaoRetirada = (function(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
-            resolve();
-        }, {blocking:false}));
+            statusFinal = 'aguardando_ficha_opme';
+        }
     }
-    // se 'nao' — mantém a_retirar, não altera nada
 
     try {
         await window.fbSaveProc(proc);
+        const msgs = {
+            concluido: { cor: '#22c55e', texto: '✅ Confirmado — Concluído' },
+            aguardando_ficha_opme: { cor: '#a855f7', texto: '📋 Retirado — Aguardando Ficha OPME' },
+            a_retirar: { cor: '#9ca3af', texto: '📦 Mantido — Aguardando Retirada' },
+        };
+        const m = msgs[statusFinal];
         if (itemEl) {
-            itemEl.innerHTML = `<div style="padding:8px 0;font-family:var(--mono);font-size:0.75rem;color:${resposta==='sim'?'#22c55e':'#9ca3af'};font-weight:700;">${resposta==='sim'?'✅ Confirmado — Concluído':'📦 Mantido — Aguardando Retirada'}: ${proc.paciente||'—'}</div>`;
+            itemEl.innerHTML = `<div style="padding:8px 0;font-family:var(--mono);font-size:0.75rem;color:${m.cor};font-weight:700;">${m.texto}: ${proc.paciente||'—'}</div>`;
             itemEl.style.opacity = '1';
         }
-        window.showSyncToast && window.showSyncToast(resposta === 'sim' ? '✅ Retirada confirmada!' : '📦 Mantido como aguardando retirada');
+        window.showSyncToast && window.showSyncToast(m.texto + '!');
         if (typeof window.renderTable === 'function') window.renderTable();
         window.updateStats && window.updateStats();
     } catch(e) {
@@ -17780,7 +17949,7 @@ window.verHistoricoStatus = function(docId) {
     const proc = (window.procedimentos||[]).find(p => (p._docId||String(p.id)) === String(docId));
     if (!proc) return;
     const hist = proc._statusHistory || [];
-    const labelMap = {a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguardando Retirada',urgencia:'🚨 URGÊNCIA',coleta_urgente:'✈️ Coleta Prioritária'};
+    const labelMap = {a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME',urgencia:'🚨 URGÊNCIA',coleta_urgente:'✈️ Coleta Prioritária'};
 
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
@@ -17981,7 +18150,7 @@ window.executarPesquisaGlobal = function(q) {
 
     if (!resultados.length) { el.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-family:var(--mono);font-size:0.8rem;">Nenhum resultado encontrado</div>'; return; }
 
-    const labelSt = {a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar',urgencia:'🚨 URGÊNCIA',coleta_urgente:'✈️ Coleta'};
+    const labelSt = {a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'A Retirar', aguardando_ficha_opme:'Ficha OPME',urgencia:'🚨 URGÊNCIA',coleta_urgente:'✈️ Coleta'};
     el.innerHTML = `<div style="font-family:var(--mono);font-size:0.68rem;color:#9ca3af;margin-bottom:8px;">${resultados.length} resultado(s)</div>` +
     resultados.map(p => {
         const id = p._docId || p.id;
@@ -18052,7 +18221,7 @@ window.imprimirRelatorio = function() {
     const procs = window.procedimentos || [];
     const hojeStr = hoje();
     const doHoje = procs.filter(p => p.data === hojeStr && !window._ehColeta(p));
-    const labelSt = {a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguardando Retirada',urgencia:'URGÊNCIA',coleta_urgente:'Coleta Prioritária'};
+    const labelSt = {a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME',urgencia:'URGÊNCIA',coleta_urgente:'Coleta Prioritária'};
 
     const win = window.open('','_blank');
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cirurgias — ${fmtData(hojeStr)}</title>
@@ -20263,7 +20432,7 @@ window.buildCardHTML=function(proc){
 window.abrirQRCode=function(docId){
     const proc=(window.procedimentos||[]).find(p=>(p._docId||String(p.id))===String(docId)); if(!proc) return;
     const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—';
-    const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguard. Retirada',urgencia:'URGÊNCIA'};
+    const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguard. Retirada', aguardando_ficha_opme:'Aguard. Ficha OPME',urgencia:'URGÊNCIA'};
     const txt=[`GF Medical — Ficha Cirúrgica`,proc.hospital||'',proc.paciente?`Paciente: ${proc.paciente}`:'',proc.medico?`Médico: ${proc.medico}`:'',proc.data?`Data: ${fmt(proc.data)}${proc.inicio?' às '+proc.inicio:''}`:'',`Status: ${sMap[proc.status]||proc.status}`,proc.vendedor?`Vendedor: ${proc.vendedor}`:''].filter(Boolean).join('\n');
     const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&format=svg&data=${encodeURIComponent(txt)}`;
     const ov=document.createElement('div');
@@ -20389,7 +20558,7 @@ function _swMelhorias(v){
         window.currentView=v;
     },0);
 }
-const _KS=[{key:'urgencia',label:'🚨 Urgência',cor:'#ef4444'},{key:'a_agendar',label:'Autorizado',cor:'#06b6d4'},{key:'agendado',label:'Agendado',cor:'#4db87a'},{key:'em_transito',label:'Em Trânsito',cor:'#6366f1'},{key:'preparacao',label:'Em Separação',cor:'#d4920a'},{key:'andamento',label:'Em Procedimento',cor:'#d94f4f'},{key:'reagendado',label:'Reagendado',cor:'#a78bfa'},{key:'a_retirar',label:'Aguard. Retirada',cor:'#f97316'}];
+const _KS=[{key:'urgencia',label:'🚨 Urgência',cor:'#ef4444'},{key:'a_agendar',label:'Autorizado',cor:'#06b6d4'},{key:'agendado',label:'Agendado',cor:'#4db87a'},{key:'em_transito',label:'Em Trânsito',cor:'#6366f1'},{key:'preparacao',label:'Em Separação',cor:'#d4920a'},{key:'andamento',label:'Em Procedimento',cor:'#d94f4f'},{key:'reagendado',label:'Reagendado',cor:'#a78bfa'},{key:'a_retirar',label:'Aguard. Retirada',cor:'#f97316'},{key:'aguardando_ficha_opme',label:'Aguard. Ficha OPME',cor:'#a855f7'}];
 function renderKanban(){
     const c=document.getElementById('kanban-view'); if(!c) return;
     const procs=(window.procedimentos||[]).filter(p=>!['concluido','cancelado','coleta_urgente'].includes(p.status));
@@ -20413,7 +20582,7 @@ function renderKanban(){
 
 // ─── 3. ALERTA SLA ────────────────────────────────────────────────
 const _SLA={a_agendar:15,agendado:10,reagendado:5,preparacao:4};
-const _SL={a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguardando Retirada',urgencia:'Urgência',coleta_urgente:'Coleta Prioritária'};
+const _SL={a_agendar:'Autorizado',andamento:'Em Procedimento',preparacao:'Em Separação',agendado:'Agendado',em_transito:'Em Trânsito',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME',urgencia:'Urgência',coleta_urgente:'Coleta Prioritária'};
 function _diasStatus(proc){const h=proc._statusHistory||[];for(let i=h.length-1;i>=0;i--){if(h[i].para===proc.status)return Math.floor((Date.now()-new Date(h[i].em).getTime())/86400000);}return 0;}
 function injetarBarraSLA2(){
     if(document.getElementById('sla-alert-bar')) return;
@@ -20467,7 +20636,7 @@ window.abrirResumoDia=function(){
 window.copiarFicha=function(docId){
     const proc=(window.procedimentos||[]).find(p=>(p._docId||String(p.id))===String(docId)); if(!proc) return;
     const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—';
-    const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguard. Retirada',urgencia:'URGÊNCIA'};
+    const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguard. Retirada', aguardando_ficha_opme:'Aguard. Ficha OPME',urgencia:'URGÊNCIA'};
     const txt=[`── Ficha Cirúrgica ──`,proc.hospital?`Hospital: ${proc.hospital}`:'',proc.paciente?`Paciente: ${proc.paciente}`:'',proc.medico?`Médico: ${proc.medico}`:'',proc.procedimento?`Procedimento: ${proc.procedimento}`:'',proc.convenio?`Convênio: ${proc.convenio}`:'',proc.data?`Data: ${fmt(proc.data)}${proc.inicio?' às '+proc.inicio:''}`:'',`Status: ${sMap[proc.status]||proc.status}`,proc.vendedor?`Vendedor: ${proc.vendedor}`:'',proc.nf?`NF: ${proc.nf}`:'',proc.obs?`Obs: ${proc.obs}`:''].filter(Boolean).join('\n');
     (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).catch(()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);});
     window.showSyncToast&&window.showSyncToast('📋 Ficha copiada!');
@@ -20647,7 +20816,7 @@ function _beepReagVencido() {
 const _statusLabelMap = {
     a_agendar:'Autorizado', andamento:'Em Procedimento', preparacao:'Em Separação',
     agendado:'Agendado', em_transito:'Em Trânsito', concluido:'Concluído', cancelado:'Cancelado',
-    reagendado:'Reagendado', a_retirar:'Aguardando Retirada',
+    reagendado:'Reagendado', a_retirar:'Aguardando Retirada', aguardando_ficha_opme:'Aguardando Ficha OPME',
     urgencia:'🚨 URGÊNCIA', coleta_urgente:'✈️ Coleta Prioritária'
 };
 
