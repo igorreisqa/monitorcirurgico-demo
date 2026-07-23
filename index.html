@@ -6423,7 +6423,13 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
                         <option value="Dermatológica">Dermatológica</option>
                         <option value="Transplante">Transplante</option>
                         <option value="Outros">Outros</option>
+                        <option value="__outro">Outro (digitar)...</option>
                     </select>
+                </div>
+
+                <div class="form-group" id="g-outro-tipo-cirurgia" style="display:none;">
+                    <label class="form-label">Nome do Tipo de Cirurgia</label>
+                    <input class="form-input" id="f-outro-tipo-cirurgia" placeholder="Digite o tipo de cirurgia">
                 </div>
 
                 <div class="form-group" id="g-outro-conv" style="display:none;">
@@ -8969,7 +8975,23 @@ function editProc(docId) {
         const nomeAtual = p.operadorNome || window._operadorNome || (window._currentUser && window._currentUser.nome) || '';
         selOperadorEdit.value = [...selOperadorEdit.options].some(o => o.value === nomeAtual) ? nomeAtual : '';
     }
-    if (document.getElementById('f-tipo-cirurgia')) document.getElementById('f-tipo-cirurgia').value = p.tipoCirurgia || '';
+    (function() {
+        const selTC = document.getElementById('f-tipo-cirurgia');
+        const gTC = document.getElementById('g-outro-tipo-cirurgia');
+        const oTC = document.getElementById('f-outro-tipo-cirurgia');
+        if (!selTC) return;
+        const tipoOpts = Array.from(selTC.options).map(o => o.value);
+        const tipo = p.tipoCirurgia || '';
+        if (tipo && !tipoOpts.includes(tipo)) {
+            selTC.value = '__outro';
+            if (gTC) gTC.style.display = 'block';
+            if (oTC) oTC.value = tipo;
+        } else {
+            selTC.value = tipo;
+            if (gTC) gTC.style.display = 'none';
+            if (oTC) oTC.value = '';
+        }
+    })();
     document.getElementById('f-linha').value = p.linha || '';
     document.getElementById('f-inicio').value = p.inicio;
     document.getElementById('f-nf').value = p.nf || '';
@@ -9330,7 +9352,12 @@ async function saveProcedure(e) {
         procedimento: _isColeta ? (document.getElementById('f-procedimento').value || '') : document.getElementById('f-procedimento').value,
         convenio: _isColeta && (!convenio || convenio === '—') ? '' : convenio,
         vendedor: _isColeta ? (document.getElementById('f-vendedor').value || '') : document.getElementById('f-vendedor').value,
-        tipoCirurgia: document.getElementById('f-tipo-cirurgia') ? document.getElementById('f-tipo-cirurgia').value : '',
+        tipoCirurgia: (function(){
+            const elTC = document.getElementById('f-tipo-cirurgia');
+            if (!elTC) return '';
+            if (elTC.value === '__outro') return (document.getElementById('f-outro-tipo-cirurgia')?.value || '').trim();
+            return elTC.value;
+        })(),
         linha: _isColeta ? (document.getElementById('f-linha').value || '') : document.getElementById('f-linha').value,
         subgrupo: document.getElementById('f-subgrupo') ? document.getElementById('f-subgrupo').value : '',
         subgrupo2: document.getElementById('f-subgrupo2') ? document.getElementById('f-subgrupo2').value : '',
@@ -10120,6 +10147,10 @@ function renderTable() {
 
 document.getElementById('f-convenio').addEventListener('change', function() {
     document.getElementById('g-outro-conv').style.display = this.value === '__outro' ? 'block' : 'none';
+});
+
+document.getElementById('f-tipo-cirurgia').addEventListener('change', function() {
+    document.getElementById('g-outro-tipo-cirurgia').style.display = this.value === '__outro' ? 'block' : 'none';
 });
 
 // ─── STATUS → RETIRADA obrigatória + modo Retirar Volumes Urgentes ───
