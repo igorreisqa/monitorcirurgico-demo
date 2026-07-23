@@ -5825,6 +5825,13 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
                     </select>
                 </div>
 
+                <div class="form-group full" id="g-operador">
+                    <label class="form-label">Nome do Operador *</label>
+                    <select class="form-select" id="f-operador" required>
+                        <option value="">Selecione quem está lançando</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">Status *</label>
                     <select class="form-select" id="f-status" required>
@@ -8733,6 +8740,13 @@ function editProc(docId) {
     if (document.getElementById('f-pacienteIdade')) document.getElementById('f-pacienteIdade').value = p.pacienteIdade || '';
     document.getElementById('f-procedimento').value = p.procedimento;
     document.getElementById('f-vendedor').value = p.vendedor;
+    const selOperadorEdit = document.getElementById('f-operador');
+    if (selOperadorEdit) {
+        selOperadorEdit.innerHTML = '<option value="">Selecione quem está lançando</option>' +
+            _nomesOperadorAtivos().map(nome => `<option value="${nome}">${nome}</option>`).join('');
+        const nomeAtual = p.operadorNome || window._operadorNome || (window._currentUser && window._currentUser.nome) || '';
+        selOperadorEdit.value = [...selOperadorEdit.options].some(o => o.value === nomeAtual) ? nomeAtual : '';
+    }
     if (document.getElementById('f-tipo-cirurgia')) document.getElementById('f-tipo-cirurgia').value = p.tipoCirurgia || '';
     document.getElementById('f-linha').value = p.linha || '';
     document.getElementById('f-inicio').value = p.inicio;
@@ -8879,6 +8893,17 @@ function _doOpenModal() {
             selVend.value = window._operadorNome;
         }
     }
+    // Nome do Operador: obrigatório em todo lançamento. Quem já se
+    // identificou (conta comercial@ compartilhada) ou tem login próprio
+    // (nome já conhecido pelo próprio usuário) vem pré-preenchido — só quem
+    // ainda não indicou quem é precisa escolher manualmente.
+    const selOperador = document.getElementById('f-operador');
+    if (selOperador) {
+        selOperador.innerHTML = '<option value="">Selecione quem está lançando</option>' +
+            _nomesOperadorAtivos().map(nome => `<option value="${nome}">${nome}</option>`).join('');
+        const nomeConhecido = window._operadorNome || (window._currentUser && window._currentUser.nome) || '';
+        selOperador.value = [...selOperador.options].some(o => o.value === nomeConhecido) ? nomeConhecido : '';
+    }
     document.getElementById('f-data').value = todayStr();
     autoRetirada(todayStr());
     // Garante que o status seja resetado e os campos corretos apareçam
@@ -8998,7 +9023,21 @@ async function saveProcedure(e) {
         convenio = document.getElementById('f-outro-convenio').value.trim();
         if (!convenio) { alert('Informe o nome do convênio'); return; }
     }
+    if (!_isColeta && !convenio) {
+        const cEl = document.getElementById('f-convenio');
+        cEl.style.borderColor = '#f97316'; cEl.focus();
+        alert('⚠️ Selecione o convênio.');
+        return;
+    }
     if (_isColeta && (!convenio || convenio === '__outro')) convenio = '—';
+
+    const nomeOperadorForm = document.getElementById('f-operador').value;
+    if (!nomeOperadorForm) {
+        const oEl = document.getElementById('f-operador');
+        oEl.style.borderColor = '#f97316'; oEl.focus();
+        alert('⚠️ Selecione o nome de quem está lançando este registro.');
+        return;
+    }
 
     // Validação médico
     let medico = document.getElementById('f-medico').value.trim();
@@ -9110,11 +9149,10 @@ async function saveProcedure(e) {
         proc.cadastradoPor = uidFilial || (window._currentUser && window._currentUser.uid);
     }
 
-    if (!existingProc && window._operadorNome) {
-        proc.operadorNome = window._operadorNome;
-    } else if (existingProc && existingProc.operadorNome) {
-        proc.operadorNome = existingProc.operadorNome;
-    }
+    // Nome do operador vem sempre do campo obrigatório do formulário — nunca
+    // mais depende só de window._operadorNome (que só existia pra conta
+    // comercial@ compartilhada), então fica registrado em todo lançamento.
+    proc.operadorNome = nomeOperadorForm;
 
     try {
         await fbSaveProc(proc);
@@ -9511,7 +9549,10 @@ async function renderAtividade(forcar) {
         .filter(p => p._createdAt)
         .map(p => ({
             quando: p._createdAt,
-            quem: quem(p.cadastradoPor),
+            // Prefere o nome do operador que preencheu o formulário — o UID
+            // resolvido só mostraria a conta de login (ex.: "comercial@..."
+            // pra quem usa a conta compartilhada), não quem de fato lançou.
+            quem: p.operadorNome || quem(p.cadastradoPor),
             tipo: (typeof _ehColeta === 'function' && _ehColeta(p)) ? '✈️ Coleta' : '🏥 Cirurgia',
             desc: (p.paciente || p.hospital || '—') + (p.hospital ? ' · ' + p.hospital : ''),
         }));
@@ -9520,7 +9561,7 @@ async function renderAtividade(forcar) {
         .filter(f => f.criadoEm)
         .map(f => ({
             quando: f.criadoEm,
-            quem: quem(f.criadoPor),
+            quem: f.operadorNome || quem(f.criadoPor),
             tipo: '📋 Ficha OPME',
             desc: (f.paciente || f.procedimento || '—') + (f.hospital ? ' · ' + f.hospital : ''),
         }));
@@ -9857,7 +9898,7 @@ document.getElementById('f-status').addEventListener('change', function() {
     const formGrid = document.getElementById('procForm')?.querySelector('.form-grid');
     if (formGrid) {
         Array.from(formGrid.children).forEach(el => {
-            if (el.id === 'g-coleta-urgente') return;
+            if (el.id === 'g-coleta-urgente' || el.id === 'g-operador') return;
             if (isColeta) {
                 el.dataset.prevDisplay = el.style.display || '';
                 el.style.display = 'none';
