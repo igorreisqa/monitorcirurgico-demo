@@ -9233,21 +9233,32 @@ function _resolverNomeOperador(nome, callback) {
     callback(nome);
 }
 
+// Seletor (dropdown) em vez de um botão por nome — evita expor a lista
+// inteira de operadores na tela pra quem estiver por perto olhando.
 window.pedirIdentificacaoComercial = function() {
     return new Promise(resolve => {
         const overlay = document.getElementById('identComercialOverlay');
         const lista = document.getElementById('identComercialNomes');
         if (!overlay || !lista) { resolve(null); return; }
-        lista.innerHTML = _nomesOperadorAtivos().map(nome => {
-            const label = nome;
-            return `<button type="button" class="login-btn" style="margin-top:0;text-transform:none;font-size:0.95rem;" onclick="window._resolverIdentComercial('${nome}')">${label}</button>`;
-        }).join('');
+        const opcoes = _nomesOperadorAtivos();
+        lista.innerHTML =
+            '<select id="selIdentComercial" class="login-input" style="width:100%;">' +
+                '<option value="">Selecione seu nome</option>' +
+                opcoes.map(nome => `<option value="${nome}">${nome}</option>`).join('') +
+            '</select>' +
+            '<button type="button" class="login-btn" style="margin-top:10px;" id="btnConfirmarIdentComercial">Entrar</button>';
         window._resolverIdentComercial = function(nome) {
             if (nome === null) { overlay.classList.add('hidden'); resolve(null); return; }
             _resolverNomeOperador(nome, nomeFinal => {
                 overlay.classList.add('hidden');
                 resolve(nomeFinal);
             });
+        };
+        const btnConfirmar = document.getElementById('btnConfirmarIdentComercial');
+        const selNome = document.getElementById('selIdentComercial');
+        btnConfirmar.onclick = () => {
+            if (!selNome.value) { selNome.focus(); return; }
+            window._resolverIdentComercial(selNome.value);
         };
         overlay.classList.remove('hidden');
     });
@@ -9266,6 +9277,7 @@ function cancelarNomeOp() {
 }
 
 function selecionarNomeOp(nome) {
+    if (!nome) return;
     _resolverNomeOperador(nome, nomeFinal => {
         window._operadorNome = nomeFinal;
         document.getElementById('modalNomeOp').classList.remove('open');
@@ -9278,11 +9290,13 @@ function openModal() {
     if (_precisaNomeOp()) {
         _pendingOpenModal = _doOpenModal;
         const lista = document.getElementById('listaNomeOperador');
-        lista.innerHTML = _nomesOperadorAtivos().map(nome => {
-            const sel = nome === window._operadorNome;
-            const label = nome;
-            return `<button type="button" onclick="selecionarNomeOp('${nome}')" style="padding:10px 14px;border-radius:8px;background:${sel?'rgba(75,180,210,0.12)':'var(--bg3)'};border:1.5px solid ${sel?'var(--accent)':'var(--border)'};color:var(--text);cursor:pointer;font-family:var(--mono);font-size:0.88rem;font-weight:600;text-align:left;transition:all .13s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${sel?'var(--accent)':'var(--border)'}'">${sel?'✓ ':''}${label}</button>`;
-        }).join('');
+        const opcoes = _nomesOperadorAtivos();
+        lista.innerHTML =
+            '<select id="selNomeOperador" class="form-select" style="width:100%;">' +
+                '<option value="">Selecione seu nome</option>' +
+                opcoes.map(nome => `<option value="${nome}" ${nome === window._operadorNome ? 'selected' : ''}>${nome}</option>`).join('') +
+            '</select>' +
+            '<button type="button" onclick="selecionarNomeOp(document.getElementById(\'selNomeOperador\').value)" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-family:var(--mono);font-size:0.88rem;font-weight:700;">Confirmar</button>';
         document.getElementById('modalNomeOp').classList.add('open');
         return;
     }
