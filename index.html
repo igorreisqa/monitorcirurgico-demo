@@ -733,6 +733,18 @@
       // de aplicar no window.procedimentos — assim uma atualização vinda de
       // uma filial nunca apaga o que já tinha sido carregado da outra.
       const _porFilial = { cgr: [], cba: [] };
+      // Rastreia quais filiais já entregaram ao menos um snapshot — o Resumo
+      // inicial só pode ser mostrado depois que TODAS as filiais relevantes
+      // carregaram; no Consolidado as duas conexões chegam em momentos
+      // diferentes, e mostrar assim que a primeira chega dá um resumo
+      // incompleto (só uma cidade), mesmo que o total pareça plausível.
+      window._filiaisCarregadas = window._filiaisCarregadas || new Set();
+      function _filiaisNecessarias() {
+        return window._gfMode === 'consolidado' ? ['cgr', 'cba'] : [ACTIVE_BRANCH_CODE];
+      }
+      function _todasFiliaisCarregadas() {
+        return _filiaisNecessarias().every(f => window._filiaisCarregadas.has(f));
+      }
       function _procedimentosCombinados() {
         if (window._gfMode === 'consolidado') return [..._porFilial.cgr, ..._porFilial.cba];
         return _porFilial[ACTIVE_BRANCH_CODE] || [];
@@ -957,7 +969,8 @@
               window.updatePeriodResult();
               window.updateAlerts();
               window.showSyncToast('🔄 Sincronizado');
-              if (!window._resumoInicialMostrado) mostrarResumoInicial();
+              window._filiaisCarregadas.add(branchCode);
+              if (!window._resumoInicialMostrado && _todasFiliaisCarregadas()) mostrarResumoInicial();
             } catch(e) { console.error('Erro ao aplicar dados:', e); }
           }
           aplicar();
@@ -7408,11 +7421,33 @@ async function _abrirWhatsApp(texto) {
 // agora atende as duas cidades a partir do mesmo código, então vale garantir
 // que quem está cobrando não esqueceu de qual unidade está o dado na tela.
 function confirmarFilialAntesDeCobrar() {
+    const antigo = document.getElementById('modalConfCobrarWhats');
+    if (antigo) antigo.remove();
+    let msg;
     if (window._gfMode === 'consolidado') {
-        return confirm('Você está no modo Consolidado (Campo Grande + Cuiabá).\n\nA mensagem vai separar os itens por cidade, com um cabeçalho pra cada uma. Confirma o envio?');
+        msg = 'Você está no modo Consolidado (Campo Grande + Cuiabá). A mensagem vai separar os itens por cidade, com um cabeçalho pra cada uma.';
+    } else {
+        const nome = (window._branchConfig && window._branchConfig.label) || window._activeBranch || '—';
+        msg = 'Você está prestes a cobrar via WhatsApp pela unidade: <strong>' + nome + '</strong>.';
     }
-    const nome = (window._branchConfig && window._branchConfig.label) || window._activeBranch || '—';
-    return confirm('Você está prestes a cobrar via WhatsApp pela unidade: ' + nome + '.\n\nConfirma que é a filial certa antes de enviar?');
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.id = 'modalConfCobrarWhats';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px;';
+        overlay.innerHTML =
+            '<div style="background:var(--surface,#fff);border:1px solid var(--border);border-top:4px solid #25D366;border-radius:16px;padding:28px 26px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.35);">' +
+                '<div style="font-family:var(--mono);font-size:0.82rem;font-weight:700;letter-spacing:0.08em;color:#25D366;text-transform:uppercase;margin-bottom:18px;">💬 Cobrar via WhatsApp</div>' +
+                '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:0.92rem;color:var(--text,#111);margin-bottom:18px;line-height:1.5;">' + msg + '</div>' +
+                '<div style="font-family:var(--mono);font-size:0.78rem;color:var(--text-dim,#6b7280);margin-bottom:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Confirma o envio?</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button id="btnCobrarSim" style="flex:1;padding:13px;border-radius:10px;border:2px solid #25D366;background:#25D366;color:#fff;font-family:var(--mono);font-size:0.9rem;font-weight:700;cursor:pointer;">✅ SIM</button>' +
+                    '<button id="btnCobrarNao" style="flex:1;padding:13px;border-radius:10px;border:2px solid #d94f4f;background:transparent;color:#d94f4f;font-family:var(--mono);font-size:0.9rem;font-weight:700;cursor:pointer;">❌ NÃO</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector('#btnCobrarSim').onclick = () => { overlay.remove(); resolve(true); };
+        overlay.querySelector('#btnCobrarNao').onclick = () => { overlay.remove(); resolve(false); };
+    });
 }
 
 // Agrupa uma lista de procedimentos por filial de origem — só entra em ação
@@ -7434,7 +7469,7 @@ function _agruparPorFilialWhatsApp(lista) {
 }
 
 async function exportarWhatsApp() {
-    if (!confirmarFilialAntesDeCobrar()) return;
+    if (!(await confirmarFilialAntesDeCobrar())) return;
     await verificarPromocaoRetirada();
 
     var fmt = function(d) {
@@ -10897,8 +10932,8 @@ function atualizarBannerPendencias() {
         </div>`;
 }
 
-function cobrarVolumesWhatsApp() {
-    if (!confirmarFilialAntesDeCobrar()) return;
+async function cobrarVolumesWhatsApp() {
+    if (!(await confirmarFilialAntesDeCobrar())) return;
     const hoje = todayStr();
     const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—';
     const coletas = procedimentos.filter(p => {
@@ -10939,8 +10974,8 @@ function cobrarVolumesWhatsApp() {
 
     _abrirWhatsApp(linhas.join('\n'));
 }
-function cobrarAgendadosWhatsApp() {
-    if (!confirmarFilialAntesDeCobrar()) return;
+async function cobrarAgendadosWhatsApp() {
+    if (!(await confirmarFilialAntesDeCobrar())) return;
     const hoje = todayStr();
     const amanhaD = new Date(); amanhaD.setDate(amanhaD.getDate() + 1);
     const amanha = amanhaD.getFullYear() + '-' + String(amanhaD.getMonth()+1).padStart(2,'0') + '-' + String(amanhaD.getDate()).padStart(2,'0');
@@ -17441,8 +17476,8 @@ window.sortarCentral = function(key) {
 // ════════════════════════════════════════════
 // FIX 6 — WhatsApp em lote para Coleta
 // ════════════════════════════════════════════
-window.exportarWhatsAppColeta = function() {
-    if (typeof confirmarFilialAntesDeCobrar === 'function' && !confirmarFilialAntesDeCobrar()) return;
+window.exportarWhatsAppColeta = async function() {
+    if (typeof confirmarFilialAntesDeCobrar === 'function' && !(await confirmarFilialAntesDeCobrar())) return;
     const procs = window.procedimentos || [];
     const hoje = (function(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
     const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—';
