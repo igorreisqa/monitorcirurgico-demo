@@ -5901,7 +5901,7 @@ html.modo-demo .header-text h1::after{content:" · Demonstração";font-size:0.5
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Nº Nota Fiscal</label>
+                    <label class="form-label" id="label-nf">Nº Nota Fiscal</label>
                     <input class="form-input" id="f-nf" placeholder="Ex: 000123" oninput="autoTransitoNF(this.value)">
                 </div>
                 <div class="form-group">
@@ -9421,15 +9421,16 @@ async function saveProcedure(e) {
     if (!_isColeta && !medico) { alert('Informe o nome do médico'); document.getElementById('f-medico').focus(); return; }
     if (_isColeta && !medico) medico = '';
 
-    // Validação: status Em Trânsito exige NF preenchida
+    // Validação: status Em Trânsito e Em Procedimento exigem NF preenchida
     const status = document.getElementById('f-status').value;
     const nfVal = document.getElementById('f-nf').value.trim();
-    if (status === 'em_transito' && !nfVal) {
+    if ((status === 'em_transito' || status === 'andamento') && !nfVal) {
         const inp = document.getElementById('f-nf');
         inp.style.borderColor = '#f97316';
         inp.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.3)';
         inp.focus();
-        alert('⚠️ Informe o Número da NF para o status "Em Trânsito"!');
+        const nomeStatusNf = status === 'andamento' ? 'Em Procedimento' : 'Em Trânsito';
+        alert('⚠️ Informe o Número da NF para o status "' + nomeStatusNf + '"!');
         return;
     }
 
@@ -10300,6 +10301,10 @@ document.getElementById('f-status').addEventListener('change', function() {
     const inp = document.getElementById('f-retirada');
     const lbl = document.getElementById('label-retirada');
     const grpColeta = document.getElementById('g-coleta-urgente');
+
+    // NF obrigatória (com asterisco) para Em Trânsito e Em Procedimento
+    const lblNf = document.getElementById('label-nf');
+    if (lblNf) lblNf.textContent = (val === 'em_transito' || val === 'andamento') ? 'Nº Nota Fiscal *' : 'Nº Nota Fiscal';
 
     // Campos required a desativar no modo coleta
     const reqIds = ['f-status','f-data','f-medico','f-vendedor','f-hospital','f-convenio','f-paciente','f-procedimento','f-linha','f-subgrupo'];
