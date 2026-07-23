@@ -7450,6 +7450,12 @@ function confirmarFilialAntesDeCobrar() {
     });
 }
 
+// Nome de quem está disparando a cobrança — pra deixar claro no WhatsApp
+// quem do time está cobrando aquela pendência.
+function _nomeOperadorCobranca() {
+    return window._operadorNome || (window._currentUser && window._currentUser.nome) || (window._currentUser && window._currentUser.email) || 'Equipe GF Medical';
+}
+
 // Agrupa uma lista de procedimentos por filial de origem — só entra em ação
 // no modo Consolidado (fora dele não existe mistura de cidade, então devolve
 // tudo num grupo só, sem cabeçalho, mantendo o comportamento de sempre).
@@ -7548,9 +7554,11 @@ async function exportarWhatsApp() {
         linhas.push('Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
     }
     if (fichasPendentes.length > 0) {
-        linhas.push('Por favor, providencie a entrega da ficha OPME o quanto antes para garantir laudação/faturamento com o cliente.');
+        linhas.push('Poderia providenciar a entrega da ficha do OPME o quanto antes? É pra garantir a laudação com o convênio e o faturamento com o cliente no prazo.');
     }
     linhas.push('Qualquer dúvida, é só me chamar! 🙏');
+    linhas.push('');
+    linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
 
     _abrirWhatsApp(linhas.join('\n'));
 }
@@ -7591,9 +7599,11 @@ window.cobrarIndividualWhatsApp = async function(docId) {
     linhas.push('---');
     linhas.push('');
     linhas.push(isFicha
-        ? 'Por favor, providencie a entrega da ficha OPME o quanto antes para garantir laudação/faturamento com o cliente.'
+        ? 'Poderia providenciar a entrega da ficha do OPME o quanto antes? É pra garantir a laudação com o convênio e o faturamento com o cliente no prazo.'
         : 'Por favor, providencie a devolução/entrega o quanto antes para garantir a disponibilidade dos produtos no estoque.');
     linhas.push('Qualquer dúvida, é só me chamar! 🙏');
+    linhas.push('');
+    linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
 
     _abrirWhatsApp(linhas.join('\n'));
 };
@@ -11029,6 +11039,8 @@ async function cobrarVolumesWhatsApp() {
     linhas.push('');
     linhas.push('━━━━━━━━━━━━━━━━━━━━━━');
     linhas.push('Total: *' + coletas.length + ' volume(s) urgente(s)*');
+    linhas.push('');
+    linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
 
     _abrirWhatsApp(linhas.join('\n'));
 }
@@ -11087,6 +11099,8 @@ async function cobrarAgendadosWhatsApp() {
     linhas.push('');
     linhas.push('━━━━━━━━━━━━━━━━━━━━━━');
     linhas.push(`Total: *${lista.length} cirurgia(s) agendada(s)*`);
+    linhas.push('');
+    linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
 
     _abrirWhatsApp(linhas.join('\n'));
 }
@@ -17570,6 +17584,7 @@ window.exportarWhatsAppColeta = async function() {
         });
     });
     linhas.push('_Enviado pelo Monitor Cirúrgico GF Medical_');
+    linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
     _abrirWhatsApp(linhas.join('\n'));
 };
 
