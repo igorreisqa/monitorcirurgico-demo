@@ -428,6 +428,13 @@ html.gf-need-branch-picker .branch-picker-overlay{display:flex!important}
         <div class="fg"><label class="flbl">Convênio</label><input class="finput" id="f-conv" placeholder="Ex: Unimed, SUS…" list="dl-convenio"><datalist id="dl-convenio"></datalist></div>
       </div>
       <div class="frow">
+        <div class="fg"><label class="flbl">Operador *</label>
+          <select class="finput" id="f-operador-ficha">
+            <option value="">Selecione quem está lançando</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
         <div class="fg"><label class="flbl">Nº Pedido de Venda</label><input class="finput" id="f-pedido" placeholder="Ex: 4795"></div>
         <div class="fg" id="g-filial-opme" style="display:none">
           <label class="flbl">Filial *</label>
@@ -489,6 +496,17 @@ const BRANCHES = {
   cba: { url: "https://cyztucqhfotqhauavepu.supabase.co", key: "sb_publishable_LnJYIlIDvTF6l4MMQwZ-Kg_uCBXnZRM", label: "Cuiabá",       cityLabel: "Cuiabá, MT" },
 };
 const COLL = 'fichas_opme';
+
+// Mesmas listas do index.html — quem lança a ficha precisa se identificar,
+// senão a Atividade cai no fallback e mostra o e-mail da conta em vez do
+// nome de quem realmente fez o lançamento.
+const NOMES_OPERADOR_CBA = ['Beatriz Helena Calil Barbosa','Cristina Luzia','Izabela Crozetta','Kauana da Silva Feitoza','Murilo Julio Sant Ana Pereira','Renata Franco de Lima','Starley Santos Silva','Wilson Cordeiro','Roberto Alex Cândido','Marcio Benedito Queiroz'];
+const NOMES_OPERADOR_CGR = ['Eva Diana de Araujo','Igor dos Reis Silva','Larissa Amanda Bernardo do Valle','Gabriely Amorim Dias','Luis Felipe Moura Braga','Paulo Vitor Leite da Silva','Thayz Benites Leonel','Tiago da Silva Siqueira','Jeferson Rodrigues Cruz','Marcella Fernandes Ricci','Marcos Gonçalves da Silva','Regiane da Silva Ramos','Gustavo Ovídio Mussi Faverão'];
+function _nomesOperadorAtivos() {
+  if (window._gfModeOpme === 'cba') return NOMES_OPERADOR_CBA;
+  if (window._gfModeOpme === 'cgr') return NOMES_OPERADOR_CGR;
+  return [...NOMES_OPERADOR_CGR, ...NOMES_OPERADOR_CBA];
+}
 const _isDemoUrl = new URLSearchParams(location.search).get('demo') === '1' || document.documentElement.classList.contains('modo-demo');
 
 const _savedBranch = window._opmeBranch; // resolvido no <head>: 'cgr' | 'cba' | 'consolidado'
@@ -806,8 +824,12 @@ async function uploadAnexo(conn, file, tipo, fichaId) {
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
   const path = `opme/${fichaId}/${tipo}_${Date.now()}.${ext}`;
   const storageRef = refFn(null, path); // 1º parâmetro é ignorado pelo shim (fecha o client na criação)
-  await comTimeout(upB(storageRef, file), 10000, 'Tempo esgotado ao enviar anexo (Storage). Verifique se o bucket "opme" está configurado no Supabase.');
-  return await comTimeout(getUrl(storageRef), 8000, 'Tempo esgotado ao obter link do anexo.');
+  // 10s/8s era curto demais pra PDF de Pedido de Venda em conexão real e
+  // dava timeout falso culpando o bucket — o mesmo bucket "opme" já é usado
+  // sem timeout nenhum em index.html (uploadAnexoColetaSeNecessario), então
+  // o problema aqui era só o prazo, não a configuração do Supabase.
+  await comTimeout(upB(storageRef, file), 45000, 'Tempo esgotado ao enviar anexo. Verifique sua conexão com a internet — se persistir, tente um arquivo menor.');
+  return await comTimeout(getUrl(storageRef), 15000, 'Tempo esgotado ao obter link do anexo. Verifique sua conexão e tente novamente.');
 }
 
 // Sobe os anexos em paralelo; falha de upload não bloqueia o salvamento da
@@ -1285,6 +1307,12 @@ window.abrirModal = id => {
   document.getElementById('import-badge').classList.remove('show');
   document.getElementById('pv-input').value = '';
 
+  const selOperadorFicha = document.getElementById('f-operador-ficha');
+  if (selOperadorFicha) {
+    selOperadorFicha.innerHTML = '<option value="">Selecione quem está lançando</option>' +
+      _nomesOperadorAtivos().map(nome => `<option value="${nome}">${nome}</option>`).join('');
+  }
+
   const gFilialOpme = document.getElementById('g-filial-opme');
   const fFilialOpme = document.getElementById('f-filial-opme');
   if (gFilialOpme) gFilialOpme.style.display = IS_CONSOLIDADO ? '' : 'none';
@@ -1300,6 +1328,7 @@ window.abrirModal = id => {
     document.getElementById('f-cliente').value = f.cliente||'';
     document.getElementById('f-conv').value   = f.convenio||'';
     document.getElementById('f-pedido').value = f.numeroPedido||'';
+    if (selOperadorFicha) selOperadorFicha.value = f.operadorNome || '';
     if (fFilialOpme) { fFilialOpme.value = f._filialOrigem || ''; fFilialOpme.disabled = true; }
     _atualizarZonaPvHabilitada();
     document.getElementById('f-data').value   = f.dataCirurgia||'';
@@ -1330,6 +1359,7 @@ window.abrirModal = id => {
     document.getElementById('f-hosp').value   = up.get('hospital')    || '';
     document.getElementById('f-conv').value   = up.get('convenio')    || '';
     document.getElementById('f-pedido').value = '';
+    if (selOperadorFicha) selOperadorFicha.value = '';
     if (fFilialOpme) { fFilialOpme.value = ''; fFilialOpme.disabled = false; }
     _atualizarZonaPvHabilitada();
     document.getElementById('f-data').value   = up.get('data')        || '';
@@ -1371,6 +1401,13 @@ window.salvarFicha = async () => {
   const proc = document.getElementById('f-proc').value.trim();
   if (!pac)  { alert('Informe o paciente.'); return; }
   if (!med)  { alert('Informe o médico.'); return; }
+  const operadorFicha = document.getElementById('f-operador-ficha')?.value || '';
+  if (!operadorFicha) {
+    const oEl = document.getElementById('f-operador-ficha');
+    if (oEl) { oEl.style.borderColor = '#f97316'; oEl.focus(); }
+    alert('⚠️ Selecione o nome de quem está lançando esta ficha.');
+    return;
+  }
   let filialEscolhida = ACTIVE_BRANCH_CODE;
   if (IS_CONSOLIDADO && !editingId) {
     const fFilialOpme = document.getElementById('f-filial-opme');
@@ -1394,7 +1431,8 @@ window.salvarFicha = async () => {
     status:       parseInt(document.getElementById('f-status').value),
     observacoes:  document.getElementById('f-obs').value.trim(),
     itens:iv, total,
-    filial: filialEscolhida
+    filial: filialEscolhida,
+    operadorNome: operadorFicha
   };
   const btn = document.getElementById('btn-salvar');
   btn.disabled = true; btn.textContent = 'Salvando…';
@@ -1404,7 +1442,7 @@ window.salvarFicha = async () => {
     fecharModal();
     if (falhasAnexo.length) {
       toast((editingId ? 'Ficha atualizada' : 'Ficha salva') + ', mas o anexo falhou', 'err');
-      alert('Ficha salva, porém não foi possível enviar o(s) anexo(s):\n\n' + falhasAnexo.join('\n') + '\n\nVerifique se o bucket "opme" está configurado no Supabase (Storage → Buckets).');
+      alert('Ficha salva, porém não foi possível enviar o(s) anexo(s):\n\n' + falhasAnexo.join('\n') + '\n\nVerifique sua conexão com a internet e tente anexar novamente editando a ficha.');
     } else {
       toast(editingId ? 'Ficha atualizada no banco!' : 'Ficha salva no banco!', 'ok');
     }
