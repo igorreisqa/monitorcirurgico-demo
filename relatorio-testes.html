@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório de Testes — Monitor Cirúrgico</title>
+<style>
+  :root {
+    --paper: #f3f5f1;
+    --surface: #ffffff;
+    --ink: #1b2119;
+    --ink-dim: #5b655c;
+    --ink-faint: #8a938a;
+    --accent: #2f6f5e;
+    --accent-soft: #e4efec;
+    --line: #dde2da;
+    --pass: #2e7d4f;
+    --pass-soft: #e5f3ea;
+    --fail: #b3402d;
+    --fail-soft: #fbeae6;
+    --warn: #a8721f;
+    --warn-soft: #f7ecd9;
+    --code-bg: #eef1ec;
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  :root[data-theme="dark"] {
+    --paper: #10140f;
+    --surface: #171c16;
+    --ink: #e7ece4;
+    --ink-dim: #9aa495;
+    --ink-faint: #6b756a;
+    --accent: #66baa0;
+    --accent-soft: #1c2c26;
+    --line: #262c24;
+    --pass: #4caf7d;
+    --pass-soft: #16261d;
+    --fail: #e2725a;
+    --fail-soft: #2b1a16;
+    --warn: #d9a944;
+    --warn-soft: #2a2214;
+    --code-bg: #1c2119;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10140f;
+      --surface: #171c16;
+      --ink: #e7ece4;
+      --ink-dim: #9aa495;
+      --ink-faint: #6b756a;
+      --accent: #66baa0;
+      --accent-soft: #1c2c26;
+      --line: #262c24;
+      --pass: #4caf7d;
+      --pass-soft: #16261d;
+      --fail: #e2725a;
+      --fail-soft: #2b1a16;
+      --warn: #d9a944;
+      --warn-soft: #2a2214;
+      --code-bg: #1c2119;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+
+  .sheet {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 28px 100px;
+  }
+
+  header.masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: 2.5rem;
+    line-height: 1.12;
+    margin: 10px 0 6px;
+    text-wrap: balance;
+    font-weight: 400;
+  }
+  .subtitle {
+    font-size: 1.05rem;
+    color: var(--ink-dim);
+    max-width: 62ch;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 20px;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-dim);
+  }
+  .meta-row dt { text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+  .meta-row div { display: flex; flex-direction: column; gap: 2px; }
+  .meta-row b { color: var(--ink); font-weight: 600; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 32px 0 44px;
+    overflow-x: auto;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 18px 16px;
+    min-width: 140px;
+  }
+  .stat .n {
+    font-family: var(--serif);
+    font-size: 2rem;
+    color: var(--accent);
+  }
+  .stat .l {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    margin-top: 4px;
+  }
+
+  section.block { margin: 48px 0; }
+  section.block > h2 {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  .block-kicker {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    margin-bottom: 2px;
+  }
+  .prose { max-width: 68ch; }
+  .prose p { margin: 0 0 14px; }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .status-pill.pass { background: var(--pass-soft); color: var(--pass); }
+  .status-pill.fail { background: var(--fail-soft); color: var(--fail); }
+  .status-pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+  .round {
+    border-left: 3px solid var(--line);
+    padding-left: 20px;
+    margin: 26px 0;
+  }
+  .round.found-bug { border-left-color: var(--fail); }
+  .round.verified { border-left-color: var(--pass); }
+  .round h3 {
+    font-family: var(--sans);
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .round p { margin: 8px 0; color: var(--ink); }
+  .round .caption { color: var(--ink-dim); font-size: 0.92rem; }
+
+  table.cases {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    margin: 14px 0;
+  }
+  .table-wrap { overflow-x: auto; margin: 14px 0; }
+  table.cases th, table.cases td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.cases th {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  table.cases td.mono, table.cases code { font-family: var(--mono); font-size: 0.82em; }
+  table.cases tr:last-child td { border-bottom: none; }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.55;
+    margin: 14px 0;
+  }
+  code { font-family: var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
+  pre code { background: none; padding: 0; }
+
+  .repo-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+  }
+  .repo-list span {
+    border: 1px solid var(--line);
+    padding: 3px 9px;
+    border-radius: 3px;
+    color: var(--ink-dim);
+  }
+
+  .feature-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .feature-table th, .feature-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .feature-table th { font-family: var(--mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+
+  .callout {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 2px;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  .callout b { color: var(--accent); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  ::selection { background: var(--accent); color: var(--surface); }
+
+  @media (max-width: 640px) {
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    h1 { font-size: 1.9rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="eyebrow">Relatório de testes · QA</div>
+    <h1>Monitor Cirúrgico — ciclo de testes e correções</h1>
+    <p class="subtitle">Registro das rodadas de teste realizadas sobre o sistema de acompanhamento cirúrgico e logística de materiais, cobrindo importação de PDF (NF-e/CT-e), detecção de duplicatas, rastreio de carga e ajustes de fluxo — com foco em regressão entre os quatro ambientes.</p>
+    <dl class="meta-row">
+      <div><dt>Período</dt><b>24–28 jul 2026</b></div>
+      <div><dt>Sistemas cobertos</dt><b>4 repositórios (mesma base, filiais distintas)</b></div>
+      <div><dt>Método</dt><b>Testes unitários sintéticos + validação com dados reais de produção</b></div>
+      <div><dt>Ambientes</dt><b>gfcuiaba · gfcampogrande · gfmedical · monitorcirurgico-demo</b></div>
+    </dl>
+  </header>
+
+  <div class="stat-row">
+    <div class="stat"><div class="n">9</div><div class="l">Funcionalidades testadas</div></div>
+    <div class="stat"><div class="n">11</div><div class="l">Defeitos encontrados</div></div>
+    <div class="stat"><div class="n">11</div><div class="l">Corrigidos e verificados</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Ambientes sincronizados</div></div>
+  </div>
+
+  <section class="block">
+    <div class="block-kicker">01 · Escopo</div>
+    <h2>O que foi testado</h2>
+    <div class="prose">
+      <p>O sistema é uma aplicação única (HTML/JS monolítico por ambiente) replicada em quatro repositórios que representam filiais/variações de um mesmo produto de acompanhamento cirúrgico. Toda correção validada foi propagada e revalidada nos quatro:</p>
+    </div>
+    <div class="repo-list">
+      <span>gfcuiaba</span><span>gfcampogrande</span><span>gfmedical</span><span>monitorcirurgico-demo</span>
+    </div>
+    <div class="table-wrap">
+      <table class="feature-table">
+        <thead><tr><th>Funcionalidade</th><th>Tipo de teste</th><th>Resultado</th></tr></thead>
+        <tbody>
+          <tr><td>Extração do valor total da NF (importação de PDF)</td><td>7 casos sintéticos (layouts de rótulo diferentes)</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+          <tr><td>Detecção de duplicata — cirurgia, coleta, ficha OPME</td><td>Revisão de lógica + verificação manual</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+          <tr><td>Badge de prazo (SLA) para Retirada de Material</td><td>Revisão de lógica</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+          <tr><td>Importação de CT-e do PDF (CT-e, chave, fornecedor, transportadora, NF de compra)</td><td>16 casos sintéticos + 3 rodadas com texto real extraído</td><td><span class="status-pill pass">Aprovado (5 rodadas de correção)</span></td></tr>
+          <tr><td>Rastreio de carga via SSW (chave de acesso → POST automático)</td><td>Verificação manual do formulário SSW real</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+          <tr><td>Vínculo obrigatório: Retirada de Material → cirurgia de destino</td><td>Validação de bloqueio de salvamento</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+          <tr><td>Ordenação alfabética de listas (médicos, hospitais, convênios, vendedores, operadores)</td><td>Script de verificação + deduplicação</td><td><span class="status-pill pass">Aprovado (10 duplicatas removidas)</span></td></tr>
+          <tr><td>Renomeação "Coleta Prioritária" → "Retirada de Material"</td><td>Busca textual exaustiva (case-insensitive)</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+          <tr><td>Cache do Service Worker (invalidação após deploy)</td><td>Inspeção de versão + reinstalação</td><td><span class="status-pill pass">Aprovado</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-kicker">02 · Metodologia</div>
+    <h2>Como os testes foram conduzidos</h2>
+    <div class="prose">
+      <p>Como a aplicação não tem suíte de testes automatizados própria, cada correção de parser passou por um harness Node.js descartável: a função sob teste era extraída do arquivo real (<code>nf-import.js</code>) e executada contra strings de entrada — sintéticas no início, depois substituídas por texto real assim que disponível.</p>
+      <p>A regra adotada foi <b>nunca aceitar uma correção só por inspeção visual do código</b> — todo ajuste de regex rodou contra pelo menos um caso antes de ir para produção. Quando o usuário reportava um valor errado, a prioridade era conseguir o texto exato extraído pelo <code>pdf.js</code> (via console do navegador) antes de tentar uma nova hipótese, em vez de especular sobre o layout.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-kicker">03 · Caso de estudo</div>
+    <h2>Importação de PDF — NF e CT-e</h2>
+    <div class="prose">
+      <p>Esta foi a funcionalidade com maior número de rodadas de teste, por depender de layout de PDF de terceiros (transportadoras) fora do nosso controle. Cinco rodadas, cada uma motivada por um resultado real reportado em produção.</p>
+    </div>
+
+    <div class="round found-bug">
+      <h3>Rodada 1 — Valor total da nota <span class="status-pill fail">2 falhas</span></h3>
+      <p class="caption">7 casos sintéticos cobrindo formatos de rótulo distintos (DANFE em tabela, inline com "R$", NFS-e, variações regionais).</p>
+      <div class="table-wrap">
+        <table class="cases">
+          <thead><tr><th>Caso</th><th>Entrada (trecho)</th><th>Esperado</th><th>Resultado</th></tr></thead>
+          <tbody>
+            <tr><td>DANFE tabela</td><td class="mono">VALOR TOTAL DA NOTA\n1.500,00</td><td class="mono">1500.00</td><td><span class="status-pill pass">Passou</span></td></tr>
+            <tr><td>Inline com R$</td><td class="mono">Valor Total da Nota: R$ 1.234,56</td><td class="mono">1234.56</td><td><span class="status-pill fail">Falhou</span></td></tr>
+            <tr><td>NFS-e</td><td class="mono">TOTAL DA NOTA FISCAL: R$ 850,00</td><td class="mono">850.00</td><td><span class="status-pill pass">Passou</span></td></tr>
+            <tr><td>Valor líquido</td><td class="mono">VALOR LÍQUIDO DA NOTA R$ 2.340,10</td><td class="mono">2340.10</td><td><span class="status-pill pass">Passou</span></td></tr>
+            <tr><td>Valor total simples</td><td class="mono">VALOR TOTAL&nbsp;&nbsp;&nbsp;R$ 100,00</td><td class="mono">100.00</td><td><span class="status-pill fail">Falhou</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Causa raiz:</b> o separador entre rótulo e número era rígido (<code>\s+</code>) nos dois padrões originais; só os padrões novos aceitavam "R$"/":" no meio. Unificado um separador flexível único para todos os padrões. Reexecutados os 7 casos: <span class="status-pill pass">7/7 aprovados</span>.</p>
+    </div>
+
+    <div class="round">
+      <h3>Rodada 2 — CT-e, chave de acesso e NF de compra <span class="status-pill pass">4/4 aprovados</span></h3>
+      <p class="caption">Casos sintéticos construídos a partir da estrutura oficial da chave de acesso NFe/CTe (44 dígitos), decodificada manualmente para confirmar a posição do número da nota (dígitos 26–34).</p>
+      <div class="table-wrap">
+        <table class="cases">
+          <thead><tr><th>Campo</th><th>Regra</th><th>Exemplo verificado</th></tr></thead>
+          <tbody>
+            <tr><td>Nº NF de compra</td><td>Dígitos 26–34 da chave da NF-e referenciada, zeros à esquerda removidos</td><td class="mono">...0000013311... → 1331</td></tr>
+            <tr><td>Falso positivo</td><td>Texto sem chave nenhuma não deve gerar valor</td><td class="mono">"NCM CST CFOP..." → null</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="round found-bug">
+      <h3>Rodada 3 — Validação com texto real (layout em colunas) <span class="status-pill fail">3 defeitos</span></h3>
+      <p>Usuário colou o texto real extraído de um DACTE em produção. Layout em colunas lado a lado (remetente/destinatário na mesma linha) expôs falhas que os testes sintéticos não cobriam.</p>
+      <div class="table-wrap">
+        <table class="cases">
+          <thead><tr><th>Defeito</th><th>Sintoma</th><th>Correção</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Fornecedor capturava linha inteira</td>
+              <td class="mono">"ENDO AMERICAS DESTINATÁRIO: GF MEDICAL..."</td>
+              <td>Parada de captura no próximo rótulo (lookahead)</td>
+            </tr>
+            <tr>
+              <td>Chave de acesso colava CNPJs vizinhos</td>
+              <td>44 dígitos formados por concatenação acidental</td>
+              <td>Exigir rótulo "CHAVE DE ACESSO" por perto antes de aceitar</td>
+            </tr>
+            <tr>
+              <td>Campos de cirurgia poluindo registro de coleta</td>
+              <td class="mono">hospital: "GF MEDICAL..." salvo numa Retirada de Material</td>
+              <td>Preenchimento condicionado ao modo do formulário (<code>emModoColeta</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="round found-bug">
+      <h3>Rodada 4 — Número operacional (AWB) vazando dígitos <span class="status-pill fail">1 defeito</span></h3>
+      <p>Reportado via captura de tela: campo Nº CTE salvou <code>127-4689 2333 3326</code> em vez de <code>127-4689 2333</code>. Bug reproduzido isolando o cenário exato (número colado com a chave de acesso vizinha, sem quebra de linha) antes de corrigir.</p>
+      <div class="callout"><b>Correção:</b> troca do padrão solto por um formato IATA rígido (3 dígitos‑hífen‑4 dígitos‑espaço‑4 dígitos), que não continua capturando além do AWB.</div>
+    </div>
+
+    <div class="round found-bug verified">
+      <h3>Rodada 5 — Transportadora e chave de acesso, com log real do console <span class="status-pill fail">2 defeitos</span> <span class="status-pill pass">Verificado</span></h3>
+      <p>Usuário colou o log completo do console (<code>[PDF NF] Texto completo extraído]</code>), permitindo diagnóstico exato em vez de hipótese.</p>
+      <div class="table-wrap">
+        <table class="cases">
+          <thead><tr><th>Defeito</th><th>Causa raiz (com texto real)</th><th>Correção</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Transportadora = "AÉREO"</td>
+              <td class="mono">"GOL LINHAS AEREAS S/A de Transporte Eletrônico AÉREO" — nome da transportadora colado com texto padrão do próprio DACTE de outra coluna</td>
+              <td>Captura da linha inteira + remoção do texto padrão conhecido do DACTE antes de extrair o nome</td>
+            </tr>
+            <tr>
+              <td>Chave de acesso da NF-e em vez do CT-e</td>
+              <td>Rótulo "CHAVE DE ACESSO" fica num cabeçalho de coluna; valores de todas as colunas amontoados na linha seguinte</td>
+              <td>Busca do formato pontilhado específico (11 grupos de 4 dígitos) numa janela maior após o rótulo</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Reteste com o texto real completo — <b>5/5 campos corretos</b>: CT-e <code>127-4689 2333</code>, chave <code>33260707575651000310570130003657951458702951</code>, fornecedor <code>ENDO AMERICAS</code>, transportadora <code>GOL LINHAS AEREAS S/A</code>, NF de compra <code>1331</code>.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-kicker">04 · Regressão</div>
+    <h2>Propagação entre ambientes</h2>
+    <div class="prose">
+      <p>Cada correção validada em <code>gfcuiaba</code> foi replicada nos outros três repositórios após confirmar que o trecho de código correspondente era idêntico (comparação textual linha a linha antes de aplicar). Nenhuma correção foi propagada às cegas — divergências de estrutura entre repositórios (ex.: <code>gfmedical</code> com lógica adicional de filial/consolidado) foram tratadas caso a caso.</p>
+    </div>
+    <div class="callout">
+      <b>Nota de processo:</b> a cada alteração em <code>nf-import.js</code>, a versão de cache do Service Worker (<code>sw.js</code>) precisou ser incrementada — sem isso, o navegador continuava servindo a versão antiga do parser mesmo após o deploy, mascarando correções já publicadas como se não tivessem funcionado.
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-kicker">05 · Conclusões</div>
+    <h2>Lições da rodada</h2>
+    <div class="prose">
+      <p><b>Dado real supera hipótese.</b> Todo teste sintético que passou continuou passando; os defeitos reais só apareceram com texto de produção. A partir da rodada 3, a prioridade passou a ser sempre obter o texto exato antes de propor uma correção.</p>
+      <p><b>Cache invisível pode mascarar uma correção real.</b> A rodada em que "nada aconteceu" após uma correção correta foi causada por Service Worker servindo versão antiga — um lembrete de que "não reproduziu" nem sempre significa "não corrigido".</p>
+      <p><b>Regex sobre texto posicional é frágil por natureza.</b> PDFs com colunas lado a lado produzem texto linearizado imprevisível; toda extração de campo precisou de pelo menos um padrão de fallback e, em dois casos, uma etapa de limpeza de texto conhecido (boilerplate) em vez de apenas casar um padrão.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Monitor Cirúrgico — relatório de testes</span>
+    <span>gfcuiaba · gfcampogrande · gfmedical · monitorcirurgico-demo</span>
+  </footer>
+
+</div>
+</body>
+</html>
