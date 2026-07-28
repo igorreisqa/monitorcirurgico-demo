@@ -310,8 +310,8 @@
 
   <div class="stat-row">
     <div class="stat"><div class="n">9</div><div class="l">Funcionalidades testadas</div></div>
-    <div class="stat"><div class="n">11</div><div class="l">Defeitos encontrados</div></div>
-    <div class="stat"><div class="n">11</div><div class="l">Corrigidos e verificados</div></div>
+    <div class="stat"><div class="n">16</div><div class="l">Defeitos encontrados</div></div>
+    <div class="stat"><div class="n">16</div><div class="l">Corrigidos e verificados</div></div>
     <div class="stat"><div class="n">4</div><div class="l">Ambientes sincronizados</div></div>
   </div>
 
@@ -355,7 +355,7 @@
     <div class="block-kicker">03 · Caso de estudo</div>
     <h2>Importação de PDF — NF e CT-e</h2>
     <div class="prose">
-      <p>Esta foi a funcionalidade com maior número de rodadas de teste, por depender de layout de PDF de terceiros (transportadoras) fora do nosso controle. Cinco rodadas, cada uma motivada por um resultado real reportado em produção.</p>
+      <p>Esta foi a funcionalidade com maior número de rodadas de teste, por depender de layout de PDF de terceiros (transportadoras) fora do nosso controle. Seis rodadas, cada uma motivada por um resultado real reportado em produção.</p>
     </div>
 
     <div class="round found-bug">
@@ -445,6 +445,25 @@
       </div>
       <p>Reteste com o texto real completo — <b>5/5 campos corretos</b>: CT-e <code>127-4689 2333</code>, chave <code>33260707575651000310570130003657951458702951</code>, fornecedor <code>ENDO AMERICAS</code>, transportadora <code>GOL LINHAS AEREAS S/A</code>, NF de compra <code>1331</code>.</p>
     </div>
+
+    <div class="round found-bug verified">
+      <h3>Rodada 6 — Segunda transportadora (Azul Cargo): teste de generalização <span class="status-pill fail">5 defeitos</span> <span class="status-pill pass">Verificado</span></h3>
+      <p>Todas as rodadas anteriores validaram contra um único emissor (Gollog/GOL). Usuário importou um CT-e real de uma <b>segunda transportadora</b> (Azul Cargo Express) — o teste de generalização que expõe se a extração aprendeu o padrão certo ou só decorou o layout de um emissor específico. Resultado inicial: nenhum dos 5 campos veio certo.</p>
+      <div class="table-wrap">
+        <table class="cases">
+          <thead><tr><th>Campo</th><th>Gollog (rodada 5)</th><th>Azul Cargo (novo)</th><th>Defeito exposto</th></tr></thead>
+          <tbody>
+            <tr><td>Nº CTE (AWB)</td><td class="mono">127-4689 2333</td><td class="mono">57759653786</td><td>Regex exigia hífen fixo; sem separador, capturava dígitos demais da chave vizinha</td></tr>
+            <tr><td>Chave de acesso</td><td class="mono">3326.0707.5756...(pontos)</td><td class="mono">3524 1009 2962...(espaços)</td><td>Só aceitava separador por ponto; e um "falso início" colava o fim do AWB com o começo da chave</td></tr>
+            <tr><td>Fornecedor (remetente)</td><td class="mono">REMETENTE: ENDO AMERICAS</td><td class="mono">REMETENTE : JOTEC DO BRASIL...</td><td>Espaço antes dos dois-pontos não previsto</td></tr>
+            <tr><td>Transportadora</td><td class="mono">CNPJ: 07575651000310</td><td class="mono">CNPJ/CPF: 09.296.295/0002-40</td><td>Rótulo de CNPJ diferente + busca "antes de REMETENTE" parava cedo demais no cabeçalho genérico "EXPEDIDOR/REMETENTE" do topo</td></tr>
+            <tr><td>NF de compra</td><td class="mono">NF-e &lt;CNPJ&gt; &lt;chave&gt;</td><td class="mono">NFe CHAVE: &lt;chave&gt;</td><td>CNPJ entre rótulo e chave era obrigatório no regex</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Correções:</b> cada extração deixou de depender de um formato fixo por transportadora e passou a reconhecer o <i>padrão</i> por trás do dado — 11 dígitos para o AWB (IATA), 11 grupos de 4 dígitos com separador consistente (ponto <i>ou</i> espaço) para a chave, nome antes de um sufixo jurídico (S/A, LTDA, EIRELI...) para a transportadora, dois-pontos com espaço opcional para os rótulos, CNPJ opcional entre "NFe" e a chave.</p>
+      <p>Reteste com os dois documentos reais (Gollog + Azul) e a suíte de regressão da rodada 1 — <b>todos aprovados</b>, incluindo os casos de falso positivo.</p>
+    </div>
   </section>
 
   <section class="block">
@@ -465,6 +484,7 @@
       <p><b>Dado real supera hipótese.</b> Todo teste sintético que passou continuou passando; os defeitos reais só apareceram com texto de produção. A partir da rodada 3, a prioridade passou a ser sempre obter o texto exato antes de propor uma correção.</p>
       <p><b>Cache invisível pode mascarar uma correção real.</b> A rodada em que "nada aconteceu" após uma correção correta foi causada por Service Worker servindo versão antiga — um lembrete de que "não reproduziu" nem sempre significa "não corrigido".</p>
       <p><b>Regex sobre texto posicional é frágil por natureza.</b> PDFs com colunas lado a lado produzem texto linearizado imprevisível; toda extração de campo precisou de pelo menos um padrão de fallback e, em dois casos, uma etapa de limpeza de texto conhecido (boilerplate) em vez de apenas casar um padrão.</p>
+      <p><b>Um emissor só não prova generalização.</b> As cinco primeiras rodadas validaram exclusivamente contra a Gollog e pareciam completas — 5/5 campos corretos, regressão limpa. O segundo emissor real (Azul Cargo) zerou os 5 campos de uma vez, porque cada correção anterior tinha sido ajustada ao formato específico de um documento, não ao padrão por trás dele (contagem de dígitos do AWB, sufixo jurídico do nome, presença opcional de espaço num rótulo). A cobertura de teste de um parser de terceiros só é confiável com pelo menos duas fontes independentes.</p>
     </div>
   </section>
 
