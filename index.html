@@ -40,8 +40,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <title>Monitor Cirúrgico · GF Medical</title>
-    <meta name="description" content="Monitor Cirúrgico GF Medical. Acompanhamento em tempo real de procedimentos cirúrgicos.">
+    <title>Monitor Cirúrgico</title>
+    <meta name="description" content="Monitor Cirúrgico. Acompanhamento em tempo real de procedimentos cirúrgicos.">
     <!-- Supabase SDK (migrado do Firebase) -->
     <script type="module">
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -57,7 +57,7 @@
           url: "https://rqzqetfoxiutabsooqqn.supabase.co",
           key: "sb_publishable_P3EggMdsxQUoKnX_pLMaRQ_ZrGEYpIP",
           pageTitle: "Monitor Cirúrgico · Campo Grande - MS",
-          metaDescription: "Monitor Cirúrgico GF Medical — Campo Grande, MS. Acompanhamento em tempo real de procedimentos cirúrgicos.",
+          metaDescription: "Monitor Cirúrgico — Campo Grande, MS. Acompanhamento em tempo real de procedimentos cirúrgicos.",
           cityLabel: "Campo Grande, MS",
           cityShort: "Campo Grande",
           label: "Campo Grande",
@@ -66,7 +66,7 @@
           url: "https://cyztucqhfotqhauavepu.supabase.co",
           key: "sb_publishable_LnJYIlIDvTF6l4MMQwZ-Kg_uCBXnZRM",
           pageTitle: "Monitor Cirúrgico · Cuiabá - MT",
-          metaDescription: "Monitor Cirúrgico GF Medical — Cuiabá, MT. Acompanhamento em tempo real de procedimentos cirúrgicos.",
+          metaDescription: "Monitor Cirúrgico — Cuiabá, MT. Acompanhamento em tempo real de procedimentos cirúrgicos.",
           cityLabel: "Cuiabá, MT",
           cityShort: "Cuiabá",
           label: "Cuiabá",
@@ -85,9 +85,9 @@
       const brKey = (name) => 'gf_' + (IS_CONSOLIDADO ? 'consolidado' : ACTIVE_BRANCH_CODE) + '_' + name;
       window._brKey = brKey;
 
-      document.title = IS_CONSOLIDADO ? 'Monitor Cirúrgico · Consolidado · GF Medical' : BR.pageTitle;
+      document.title = IS_CONSOLIDADO ? 'Monitor Cirúrgico · Consolidado' : BR.pageTitle;
       const _metaDesc = document.querySelector('meta[name="description"]');
-      if (_metaDesc) _metaDesc.setAttribute('content', IS_CONSOLIDADO ? 'Monitor Cirúrgico GF Medical — Campo Grande e Cuiabá, consolidado.' : BR.metaDescription);
+      if (_metaDesc) _metaDesc.setAttribute('content', IS_CONSOLIDADO ? 'Monitor Cirúrgico — Campo Grande e Cuiabá, consolidado.' : BR.metaDescription);
 
       function aplicarBrandingFilial() {
         const cidadeLabel = IS_CONSOLIDADO ? 'Consolidado (Campo Grande + Cuiabá)' : BR.cityLabel;
@@ -4780,8 +4780,8 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
 <!-- LOGIN OVERLAY -->
 <div class="login-overlay branch-picker-overlay" id="branchPickerOverlay">
     <div class="login-box">
-        <img class="login-logo-img" src="logo.jpg" alt="GF Medical">
-        <div class="login-logo">⬡ GF Medical</div>
+        <img class="login-logo-img" src="logo.jpg" alt="Monitor Cirúrgico">
+        <div class="login-logo">⬡ Monitor Cirúrgico</div>
         <div class="login-sub">Escolha sua unidade</div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
             <button type="button" class="login-btn branch-btn" onclick="window._escolherFilial('cgr')">Campo Grande</button>
@@ -4793,8 +4793,8 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
 
 <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
-        <img class="login-logo-img" src="logo.jpg" alt="GF Medical">
-        <div class="login-logo">⬡ GF Medical</div>
+        <img class="login-logo-img" src="logo.jpg" alt="Monitor Cirúrgico">
+        <div class="login-logo">⬡ Monitor Cirúrgico</div>
         <div class="login-sub">Monitor Cirúrgico<span class="marca-gf-brand"> · Campo Grande, MS</span></div>
 
         <!-- Painel de login -->
@@ -4825,7 +4825,7 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
     <div class="agendador-header">
         <div class="agendador-brand">
             <div>
-                <img class="agendador-brand-logo-img" src="logo.jpg" alt="GF Medical">
+                <img class="agendador-brand-logo-img" src="logo.jpg" alt="Monitor Cirúrgico">
                 <div class="agendador-brand-sub">Monitor Cirúrgico · Campo Grande</div>
             </div>
         </div>
@@ -4843,8 +4843,8 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
 
 <div class="login-overlay hidden" id="identComercialOverlay" style="z-index:600;">
     <div class="login-box">
-        <img class="login-logo-img" src="logo.jpg" alt="GF Medical">
-        <div class="login-logo">⬡ GF Medical</div>
+        <img class="login-logo-img" src="logo.jpg" alt="Monitor Cirúrgico">
+        <div class="login-logo">⬡ Monitor Cirúrgico</div>
         <div class="login-sub">Quem está operando agora?</div>
         <div id="identComercialNomes" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;"></div>
     </div>
@@ -4856,7 +4856,7 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
     <div class="agendador-header">
         <div class="agendador-brand">
             <div>
-                <img class="agendador-brand-logo-img" src="logo.jpg" alt="GF Medical">
+                <img class="agendador-brand-logo-img" src="logo.jpg" alt="Monitor Cirúrgico">
                 <div class="agendador-brand-sub">Monitor Cirúrgico · Campo Grande</div>
             </div>
         </div>
@@ -4904,7 +4904,7 @@ html:not(.modo-demo) #loginBtnDemo{display:none!important}
     <div class="header">
         <div class="header-left">
             <div class="header-logo-bg">
-                <img class="header-logo" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCACIAJYDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9U6KKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoopDQAtFYHi3x3ofge1WfWdQjtA+fLj5aSTGM7UGWOMjJA4zzivKNQ/at02NyLDw/eXCg43XM6Q598Df+tddHCV66vTjdHl4rNMHg3y16iT7bv7ldnu1FfPv/DWHr4V/8qP/ANqo/wCGsR/0K3/lR/8AtVdX9l4v+T8V/mef/rHlf/P3/wAll/kfQVFfPp/axAGf+EW/8qP/ANqrtfh38Ybzx4Lq8l0CPSNEtQfO1Ge/yoYDOFHljOOMnIAz36VjVwGIoxc6kbJea/zOjD53gMVUVKjUvJ+Uv8j02ivMNT+PWlW07pZWFzeopx5rERK3uAct+YFUv+GgoP8AoCSf+BI/+Jry3Vgna52vHYeLs5/meuUV5H/w0FB/0BJP/Akf/E0D9oK376LIB6/aB/8AE0vbQ7i+v4b+b8H/AJHrlFUtF1BtW0iyvXgNs1zCkphLZKbhnBPtmrtbHendXQUUUUDCiiigAooooATpXC/Fz4nRfDbQFljjW51a7LR2du/3Sw6u3fauRkDkkgZGcjuj0r4z+NPieTxT8RtWkLE21nIbGBfRYyQ35vvOfcelenl+GWJrWlstWfOZ7mMsuwvNT+KWi8vM5HWdZvNc1CfUtSu5Lu7mO6S4lOTj+QA5wBgDsMV1vhv4K+MfE0Cz22kNa2zDKTXziEN9F+/+JXFegfs4/DG21QHxXqkCzpFKU0+JwCu5ThpSO5DAhc9CpPXaR9GgY6V7OLzP6vN0aEVp/Wh8llfDv16ksVjJv3tUlu/NtnycP2avGgJ40vn0un/+N0v/AAzV41/6hf8A4FN/8RX1jRXnf2xifI+h/wBVsB5/f/wD5NP7NXjbBx/Zee3+lN/8RXafExV8J6RoXg2wyllaW6zTbePOckgFvX5g7H3YHqBXv1fP3x3bb44g562Mf/ocleZj8dWxNPlnsuxUsqw+WUZyoXvKyd+xzHhjwpqfi+aePTI0le3VWcSSbMA5A+vQ10H/AApvxX/z62//AIELW1+z2Q2q61wciGLB/wCBNXt1eVToxlG7OrCYClWoqcr3PncfBrxX3tbf/wACFoX4MeJ2aNJLaJYywV2SdSVUkZIB64GT+FfRFJ7VqsPBHZ/ZdDzGwosUSooCqoAAAwAKfRRXQeuFFFFABRRRQAUUUUAI33T9K+B9aZjrmpebzJ9ql3+ud5z/AFr74PI5r4z+NHhaTwr8RdUiKk2945voCBklZGJb6YfeMegHrX0WTTSqSg92vyPguLaMpYenUWyevzPpb4KpEnws8OCHBBtVLf75yX/8ezXifxB+Lvjnwr431rS49ZEcFvcN5KfZIjtjYBkGSvOFYflXR/s1fEeBbNvCV/KsU6O0tgzHAkViWeMH+8GJPuD/ALJrqviD8BLPx94nl1h9VmsHkhSNo4YVbLLnLEk9wVGP9n8oj7LDYyaxUbp36XNZvEZjldF5dK0lZOztsrNHh4+Pvjxs/wDE8AP/AF6Q4/8AQKUfHvx4P+Y6D/26Q/8AxNel/wDDKFhn/kYrvH/XBK4z4qfBjTvhnoEV9/at7fzTzCCKMxoqhiC2WPXGFPTvivUp1svqzUIRV35HzVfC55hqcqtSpJRX9/8A4JrfCX4weLvE3xE0fTNS1UXNjcGUSRC3iXdiJ2HIUHqB0rT+PTFfHMOOv2CLj/gcledfAj/krXh//fm/9ESV6B+0A+3xzB/14Rf+jJK+ezynClUSpqysvzZ7WVYiriMtnKrJyfN1d+hynh3xbqnhOa4k0u4+zyTKqyFo1ckDJHUH1PSts/GXxeR/yEgP+3aP/wCJpPhp4DsfiALuJr+7sbq1AZgsStGysTjB7HjkfTnmu6P7OtqRg69cEf8AXulfOQhUcU4s9alQxUoJ0m7epww+MfjDP/IU/O1i/wDia9X+DniLWfFOlahfard/aVWcQwjylTAChmPygZzuA/4D9awP+Gc7Qf8AMcuM/wDXulei+DPC0Xg3w9b6VDM1wsRdjKyhSxZi3IH1x+FdFOM0/eZ6eEo4qFS9aTt6m5RRRXSe0FFFFABRRRQAUUUUAIa4T4vfDKL4keHlijZYdVsyZbOZ/u7iOUbj7rYHI6EA84we8pDWlOpKlNTg9Uc9ehTxNKVGqrxZ8C6npd9oGqTWN/BLY39sw3RyfK6Ecggjt0II4PBHrXd6J+0D4z0SBIDfQalGi7V+3wl2A/3lKk/Ukmvp3xf8PtB8dW6xaxYJcOg/dzqSksf+645A9untXkmqfspQPMzab4hlgi7R3dsJTn/eVl/lX1McxwuJjbEx19Lr5H5vUyHMcvqOWAm3F+dn8+jOTH7Tvi//AJ9tJ/8AAeT/AOOVzPjz4va38RNPt7LVIbKOKCbz0NtGysW2lecseMMa9C/4ZPvT/wAzLb/+ATf/ABygfsn33/QzW/8A4At/8crSFbLaclOFrryZzVcHxBXg6dVNxfmv8zhfgVx8WfD/APvTf+iJK7b9od9vj2AZx/xL4/8A0OSul8Afs8Xfgrxjputya9DeJaFyYVtShfdGy9d5x97PTtXQ/Ef4Nv4919NTTVlsStusHlNbeZnDMc53j+90x2rwM5qwxVRSpO6t/mfQ5Tl2Kw+AlRqwtJyvbTaxx/7NTh9Y1/1EEP8A6E9e+V538LvhVL8O77UbiTUkv/tUaIFSDy9u0k5+8c9a9EryKUXGCTPq8HTlSoqE1ZhRRRWp2hRRRQAUUUUAFFFFABXJ6T8VvCWueJpPD1jrltc6zG8sbWi7g26MkOASMHGD0PY11E88drBJNKwSKNS7segAGSa/ODwH42k8N+P9E8UXDCFob5bq6bqRG5Inx7+W8g/GgD9I65K9+K/hLTvFK+G7jXLdNcaWOAWQDM+98FV4GMncPzpvxV+Idr8MvBF9rc+ySdR5NnA5x507A7F+nBY46KrHtXxr8DDP4i+N+h6hqk7XD/aLjUby4fqzLFJIWPYfPtOO3tQB9dX/AMe/AGmX1zZ3Xia1iubaV4ZUKOdrqxVhkLjggioP+Gifhz/0Ndn/AN8yf/E18ZeBR4O1/W9SuvHusX+lWswaeN9MiaR5ZnfJyBHJgAE9QO3PWu6j8O/AGeRIo/GHioyOwRQLJ+SeAP8Aj0oA+odU+NngfRYtPkvvEVtbJf2yXlszq/72Fs7XHy9Dg9fSqcX7Qvw5lkVB4ssVLHGZNyL+JIAA56mvmz4p+GLXWvj54f8ABEElwunWMGnaKsiuDKIQgdmBxgNtcnOMZGcV6rffsX+FJLSZbPXNbt7or+7kmeGRFP8AtKI1LD23D6imB7zp+p2erWMV7Y3UN5ZyrvjuLeQPG6+oYcEVz/hD4oeFvHt1PbaBrMOpzQIJZFhVhtUnAJJA7g18n/BbxbrHwx17x14YuJi0Nvp2oyNErboo7u2U/vEz0DBWBOOfkz0rJ+FfjW5+F/wy8X6xYER6pqVxa6RYzn5vKZY5JJJMHqVRh7bivBHBQz668a/Gbwb8Prk2uua5Db3oAY2kMbzzKCMjckasVyDkFsZqp4O+PPgbx1qEdhpWux/b5f8AV211FJbvIfRPMUBz7KSa8U+CX7Mdh4s8PQeJ/GNxeXUmpZuIbNJyhaNiT5kzj5mZ87uCODzknjf8R/sb6Pea/Yz6HrF1o+mBt13C7GaVcYKmFzypyDyxbBwR0xQI+i81yOi/F3wd4i8QnQtN1+1vNVDyR/ZoyxJZM7gDjBxtY8HoMiuO/aF+I7fCz4aJZWl7M+uajGbK1uJHHnBQoEs5Ix8ygjkfxuvGK+XdG0rUvgt458B63qX+iR3CQak2EwYbeR2jkRv9ryskjjG8A9DQB94eIvEem+EtGuNW1e7jsNOt9vm3Emdq7mCr09WYD8ah8K+L9H8baX/aWh3yahY7zH50YIG4YyOQPWvKP2vtUNj8JEtgfl1DUoLcjsdoaYZ/GEH8K3f2ZNMOl/BPw6rKA84muSQMbg8zspP/AAEqPwoA9SooooAKKKKAOP8AjFqR0j4UeL7pX8uRdKuVjbGcSNGyp/48RXxBY+CP7Q+C2q+KUjG+w1uOzkdjjELQru/OSWEfnX3z4p8Maf4y0C70bVY3msLoKsqRyNGWAYMBuUgjkCsDTPg54U0jwPf+EbbT3XQr5meeBriRmZjt+beW3AjauMHjAoA+UrDUtZ/aO8TeB/Cchli07SbCNLuUMNxCBRcXBIzhmAREznDMD/E2M74U3UH9ofEXxDbRi3trbw9qD2iKCFheZ1WEAY4wMjH+FfX/AIJ+D/hb4dw6nHoNhJZ/2ioS4ka4kkdlAbADMxKgbmPHc1kaV+zr4G0XRNZ0q0024is9Xjhiuwb2ZmZYnLoFYtlRuPO3Ge+aAPk34Up8ME06/Pj+a++1eaqWiWq3BAjC8kmIY5bsemPfn0fQU/Z6l1/Sksf7XkvmvIVt0dLwq0pkXYDkYwWwDnivV/8AhlD4bH/mEXX4alcf/F1b0f8AZl+H2g6vY6nZ6TcJd2U6XMLPfzuFkRgykgvg4IBwaAPnaDxxpWi/tSap4k12cxadY6ldqZI4mlJKRvBHgKCfSvZvE37X/g6w0maTRY73WNRIIihe2aCMN2Ls+ML/ALoJ9u9b13+y58O7+8uLq40m6lnnkaaRjqNwNzscseH9TVnSP2Zvhvo93Hcp4cW6kj+6t9dTXEf4xu5Q/ipoA+YtD8Naqvwx8dfETVyyPq0QsbSR02m6a4uUM8oH90jKjHUFscAE09Q8HXh/Z10bX4YzJaLrl08xAzsV1SFWJHQb4dv1cV9r+NvAOi/ELQk0fW7Z7jT1lSYRRTPF8y528oQcDPT6VJ4f8DaJ4a8Jx+GrOxR9ERJI/slyTOrq7Mzq2/O4EseDnrQB5D8IP2kfBsfgLSNO1vURo2p6bax2ssU0TlJBGoUSIyqQQwGducjnjGCdHR/2qvDGveP7fQLGzvptPuBsi1YRMAZACWLREB1iVRkyNjGCSoUb6TUv2Q/AN7dmaAapp0ZOfs9td7kz9ZFdvwziup0X4B+CvD+galpNjpbwx6lD9nvLr7RJ9pmiON0ZlzuVDjlVIU88UAfJHxL8d6j8VfiXda7YabJq+nWEqR2dm9pLNF5CMSvmomDiQhmIJBwduflqD4tfEDxf8S00+fxRocGnJYLJHFPbadcWwIk2blYyOwP3Bjpjn1r7b8B/Djw/8NNMnsPD9kbOCeXz5S8ryu74AyWck4wBx06+pq94t8J6Z448PXeiazbm50662ebEsjISVdXUhlIIwyqeD2oA+Rvjp46bxb8I/hY7SebNcW88twWPWaAJCxP1Yyfr1r1TwN+0n8OvCvgnw/o0uq3hk0/T4LV2GnTkFkjVTyE55HWuouP2ZPh/d2FnZS6ZdvbWnmeQh1Cf5N7bmx8/c81W/wCGUvht/wBAi6/8GNx/8XQB1/w++K3h34npfP4fuJ7hbIoJjNbSQ4LZ243gZ+6entXX1yngD4Y+HvhlaXlv4fs5LSO7kEs3mTvKWYDA5cnHHpXV0AFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAf/2Q==" alt="GF Medical">
+                <img class="header-logo" src="data:image/jpeg;base64,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" alt="Monitor Cirúrgico">
             </div>
             <div class="header-text">
                 <h1>Monitor Cirúrgico</h1>
@@ -7485,7 +7485,7 @@ function confirmarFilialAntesDeCobrar() {
 // Nome de quem está disparando a cobrança — pra deixar claro no WhatsApp
 // quem do time está cobrando aquela pendência.
 function _nomeOperadorCobranca() {
-    return window._operadorNome || (window._currentUser && window._currentUser.nome) || (window._currentUser && window._currentUser.email) || 'Equipe GF Medical';
+    return window._operadorNome || (window._currentUser && window._currentUser.nome) || (window._currentUser && window._currentUser.email) || 'Equipe';
 }
 
 // Agrupa uma lista de procedimentos por filial de origem — só entra em ação
@@ -8658,7 +8658,7 @@ window.abrirOpmePosConclusao = function(proc) {
 
         <!-- Assinaturas (visual apenas) -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(135,195,150,0.22);margin:0 20px;">
-            ${[['Médico Responsável', proc.medico||''],['Representante / Técnico','GF Medical'],['Enfermagem / Recebimento','']].map(([lbl,nm])=>`
+            ${[['Médico Responsável', proc.medico||''],['Representante / Técnico',''],['Enfermagem / Recebimento','']].map(([lbl,nm])=>`
             <div style="padding:12px 8px 10px;text-align:center;border-right:1px solid rgba(135,195,150,0.2);">
                 <div style="border-top:1.5px solid #2a9fbf;margin:18px 6px 5px;"></div>
                 <div style="font-family:var(--mono);font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-dim);">${lbl}</div>
@@ -8677,7 +8677,7 @@ window.abrirOpmePosConclusao = function(proc) {
         </div>
         <div style="padding:6px 20px 10px;font-family:var(--mono);font-size:0.6rem;color:var(--text-dim);display:flex;justify-content:space-between;">
             <span>Gerado em: ${new Date().toLocaleString('pt-BR')}</span>
-            <span>GF Medical · ${window._branchConfig.cityLabel}</span>
+            <span>${window._branchConfig.cityLabel}</span>
         </div>
     </div>`;
 
@@ -11304,7 +11304,7 @@ async function cobrarVolumesWhatsApp() {
     if (coletas.length === 0) { alert('✅ Sem retirar volumes urgentes pendentes hoje!'); return; }
 
     let linhas = [];
-    linhas.push('✈️ *GF Medical — Retirar Volumes Urgentes Pendentes* 🔴');
+    linhas.push('✈️ *Monitor Cirúrgico — Retirar Volumes Urgentes Pendentes* 🔴');
     linhas.push('📅 Gerado em: ' + new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     linhas.push('━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -11349,7 +11349,7 @@ async function cobrarAgendadosWhatsApp() {
     if (lista.length === 0) { alert('✅ Nenhuma cirurgia agendada para hoje ou amanhã!'); return; }
 
     let linhas = [];
-    linhas.push('📅 *GF Medical — Cirurgias Agendadas* 🟢');
+    linhas.push('📅 *Monitor Cirúrgico — Cirurgias Agendadas* 🟢');
     linhas.push('📅 Gerado em: ' + new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     linhas.push('━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -11949,7 +11949,7 @@ function compartilharWhatsApp(docId) {
         const retFmtColeta = proc.retirada ? fmt(proc.retirada) : (proc.dataRetirar ? fmt(proc.dataRetirar) : '');
         const retHoraColeta = proc.horaRetirar || '';
         linhas=[
-            `*✈️ RETIRADA DE MATERIAL — GF Medical*`,
+            `*✈️ RETIRADA DE MATERIAL — Monitor Cirúrgico*`,
             `━━━━━━━━━━━━━━━━━━━━━━`,
             proc.retirada||proc.dataRetirar ? `📦 *Data de Retirada: ${retFmtColeta}${retHoraColeta?' às '+retHoraColeta:''}*` : '',
             ``,
@@ -16242,7 +16242,7 @@ window.mostrarAlertaReagendado = mostrarAlertaReagendado;
     const t = document.title; if(t) document.title = t.replace('Monitor Cirúrgico','Mapa Cirúrgico Hospitalar');
     const h1 = document.querySelector('.header-text h1'); if(h1) h1.textContent = 'Mapa Cirúrgico Hospitalar';
     const _brCidade = (window._branchConfig && window._branchConfig.cityLabel) || 'Campo Grande, MS';
-    const p = document.querySelector('.header-text p'); if(p) p.textContent = window._isDemoUser ? ('Central operacional · ' + _brCidade) : ('Central operacional · ' + _brCidade + ' · GF Medical');
+    const p = document.querySelector('.header-text p'); if(p) p.textContent = 'Central operacional · ' + _brCidade;
     const btnTable = document.getElementById('tab-table'); if(btnTable) btnTable.textContent = '🧭 Central Cirúrgica';
     const btnDash = document.getElementById('tab-dashboard'); if(btnDash) btnDash.textContent = '📊 Painel Executivo';
     const footerSync = document.querySelector('.table-footer-sync'); if(footerSync) footerSync.innerHTML = '<div class="table-footer-dot"></div>Atualização automática · central';
@@ -18001,7 +18001,7 @@ window.exportarWhatsAppColeta = async function() {
     pendentes.sort((a,b) => (a.dataRetirar||a.retirada||'').localeCompare(b.dataRetirar||b.retirada||''));
 
     const linhas = [
-        '✈️ *RETIRADA DE MATERIAL — GF Medical* 🔴',
+        '✈️ *RETIRADA DE MATERIAL — Monitor Cirúrgico* 🔴',
         `_${new Date().toLocaleDateString('pt-BR')} · ${pendentes.length} pendente(s)_`,
         ''
     ];
@@ -18021,7 +18021,7 @@ window.exportarWhatsAppColeta = async function() {
             linhas.push('');
         });
     });
-    linhas.push('_Enviado pelo Monitor Cirúrgico GF Medical_');
+    linhas.push('_Enviado pelo Monitor Cirúrgico_');
     linhas.push('Cobrança de: *' + _nomeOperadorCobranca() + '*');
     _abrirWhatsApp(linhas.join('\n'));
 };
@@ -18920,7 +18920,7 @@ window.imprimirRelatorio = function() {
         .status { font-weight:700; font-size:10px; }
         @media print { body { padding: 10px; } }
     </style></head><body>
-    <h1>📋 Cirurgias do Dia — GF Medical</h1>
+    <h1>📋 Cirurgias do Dia</h1>
     <div class="sub">${fmtData(hojeStr)} · Total: ${doHoje.length} procedimento(s) · Gerado em ${new Date().toLocaleTimeString('pt-BR')}</div>
     <table>
         <thead><tr><th>Horário</th><th>Paciente</th><th>Hospital</th><th>Médico</th><th>Procedimento</th><th>Vendedor</th><th>Status</th></tr></thead>
@@ -19639,7 +19639,7 @@ window.buildCardHTML = function(proc) {
 
             <!-- ASSINATURAS -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(135,195,150,0.22);margin:4px 18px 0;">
-                ${[['Médico Responsável', proc.medico||''], ['Representante / Técnico', proc.vendedor||'GF Medical'], ['Enfermagem / Recebimento','']].map(([lbl,nm])=>`
+                ${[['Médico Responsável', proc.medico||''], ['Representante / Técnico', proc.vendedor||''], ['Enfermagem / Recebimento','']].map(([lbl,nm])=>`
                 <div style="padding:10px 8px;text-align:center;border-right:1px solid rgba(135,195,150,0.2);">
                     <div style="border-top:1.5px solid #2a9fbf;margin:16px 6px 5px;"></div>
                     <div style="font-family:var(--mono);font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);">${lbl}</div>
@@ -19932,7 +19932,7 @@ window.buildCardHTML = function(proc) {
             </table>
             <div class="opme-assinaturas">
                 <div class="opme-ass-item"><div class="opme-ass-linha"></div><div class="opme-ass-label">Médico Responsável</div><div class="opme-ass-nome">${f.medico}</div></div>
-                <div class="opme-ass-item"><div class="opme-ass-linha"></div><div class="opme-ass-label">Representante / Técnico</div><div class="opme-ass-nome">${f.representante || 'GF Medical'}</div></div>
+                <div class="opme-ass-item"><div class="opme-ass-linha"></div><div class="opme-ass-label">Representante / Técnico</div><div class="opme-ass-nome">${f.representante || ''}</div></div>
                 <div class="opme-ass-item"><div class="opme-ass-linha"></div><div class="opme-ass-label">Enfermagem / Recebimento</div><div class="opme-ass-nome">&nbsp;</div></div>
             </div>
             <div class="opme-anexo-section">
@@ -19948,7 +19948,7 @@ window.buildCardHTML = function(proc) {
             </div>
             <div class="opme-print-wrap" id="opme-pw-${f.id}"></div>
             <div class="opme-ficha-foot">
-                <span>Gerado em: ${f.geradaEm} · ${f.representante || 'GF Medical'}</span>
+                <span>Gerado em: ${f.geradaEm} · ${f.representante || ''}</span>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button onclick="opmeEditarFicha(${f.id})" style="display:inline-flex;align-items:center;gap:5px;background:rgba(99,102,241,0.12);color:#6366f1;border:1.5px solid rgba(99,102,241,0.4);border-radius:8px;padding:6px 14px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;letter-spacing:0.05em;transition:all 0.2s;" onmouseover="this.style.background='rgba(99,102,241,0.22)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">✏️ Editar</button>
                     <button onclick="opmeRemoverFicha(${f.id})" style="display:inline-flex;align-items:center;gap:5px;background:rgba(217,79,79,0.1);color:#d94f4f;border:1.5px solid rgba(217,79,79,0.4);border-radius:8px;padding:6px 14px;font-family:var(--mono);font-size:0.68rem;font-weight:700;cursor:pointer;letter-spacing:0.05em;transition:all 0.2s;" onmouseover="this.style.background='rgba(217,79,79,0.22)'" onmouseout="this.style.background='rgba(217,79,79,0.1)'">🗑️ Remover</button>
@@ -20100,7 +20100,7 @@ window.buildCardHTML = function(proc) {
             @page{margin:14mm;size:A4;}
         </style></head><body>
         <div class="hd">
-            <img class="hd-logo" src="data:image/jpeg;base64,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" alt="GF Medical">
+            <img class="hd-logo" src="data:image/jpeg;base64,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" alt="Monitor Cirúrgico">
             <div class="hd-info">
                 <div class="hd-top">
                     <span class="num">Ficha #${String(ficha.id).padStart(3,'0')}</span>
@@ -20123,16 +20123,16 @@ window.buildCardHTML = function(proc) {
         </table>
         <div class="assin">
             <div class="ai"><div class="al"></div><div class="albl">Médico Responsável</div><div class="anome">${ficha.medico}</div></div>
-            <div class="ai"><div class="al"></div><div class="albl">Representante / Técnico</div><div class="anome">${ficha.representante || 'GF Medical'}</div></div>
+            <div class="ai"><div class="al"></div><div class="albl">Representante / Técnico</div><div class="anome">${ficha.representante || ''}</div></div>
             <div class="ai"><div class="al"></div><div class="albl">Enfermagem / Recebimento</div></div>
         </div>
         ${anexoHTML ? `<div>${anexoHTML.replace('class="opme-prt-hd"','class="anexo-hd"')}</div>` : ''}
         <div class="foot">
-            <span>Gerado em: ${ficha.geradaEm} · ${ficha.representante || 'GF Medical'}</span>
-            <span>GF Medical Comércio e Representações Ltda.</span>
+            <span>Gerado em: ${ficha.geradaEm} · ${ficha.representante || ''}</span>
+            
         </div>
         <script>window.onload=()=>{window.print();}<\/script>
-        <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(6,10,9,0.85);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:8px 24px;display:flex;align-items:center;justify-content:center;gap:12px;font-family:monospace;font-size:0.72rem;color:#8a9e97;z-index:50;letter-spacing:0.05em;">&copy; 2025 <span class="marca-gf-brand" style="color:#4db87a;font-weight:700;">GF Medical &middot;</span> Desenvolvido por <a href="https://igorreisqa.github.io/portfolio/" target="_blank" style="color:#eef2f0;text-decoration:underline;font-weight:700;">Igor Reis</a> &middot; Todos os direitos reservados</div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:rgba(6,10,9,0.85);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:8px 24px;display:flex;align-items:center;justify-content:center;gap:12px;font-family:monospace;font-size:0.72rem;color:#8a9e97;z-index:50;letter-spacing:0.05em;">&copy; 2025 Monitor Cirúrgico &middot; Desenvolvido por <a href="https://igorreisqa.github.io/portfolio/" target="_blank" style="color:#eef2f0;text-decoration:underline;font-weight:700;">Igor Reis</a> &middot; Todos os direitos reservados</div>
 </body></html>`);
         win.document.close();
     };
@@ -20256,7 +20256,7 @@ window.buildCardHTML = function(proc) {
 })();
 </script>
 
-<div style="position:fixed;bottom:0;left:0;right:0;background:rgba(6,10,9,0.85);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:8px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;font-family:monospace;font-size:0.72rem;color:#8a9e97;z-index:50;letter-spacing:0.05em;text-align:center;"><span style="color:#f5a623;font-weight:700;">⚙ Projeto em andamento &mdash; em constante evolução</span><span>&middot;</span>&copy; 2025 <span style="color:#4db87a;font-weight:700;">GF Medical &middot;</span> Desenvolvido por <a href="https://igorreisqa.github.io/portfolio/" target="_blank" style="color:#eef2f0;text-decoration:underline;font-weight:700;">Igor Reis</a> &middot; Todos os direitos reservados</div>
+<div style="position:fixed;bottom:0;left:0;right:0;background:rgba(6,10,9,0.85);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.06);padding:8px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;font-family:monospace;font-size:0.72rem;color:#8a9e97;z-index:50;letter-spacing:0.05em;text-align:center;"><span style="color:#f5a623;font-weight:700;">⚙ Projeto em andamento &mdash; em constante evolução</span><span>&middot;</span>&copy; 2025 Monitor Cirúrgico &middot; Desenvolvido por <a href="https://igorreisqa.github.io/portfolio/" target="_blank" style="color:#eef2f0;text-decoration:underline;font-weight:700;">Igor Reis</a> &middot; Todos os direitos reservados</div>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
@@ -20765,7 +20765,7 @@ window.abrirQRCode=function(docId){
     const proc=(window.procedimentos||[]).find(p=>(p._docId||String(p.id))===String(docId)); if(!proc) return;
     const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—';
     const sMap={a_agendar:'Autorizado',agendado:'Agendado',em_transito:'Em Trânsito',preparacao:'Em Separação',andamento:'Em Procedimento',concluido:'Concluído',cancelado:'Cancelado',reagendado:'Reagendado',a_retirar:'Aguard. Retirada', aguardando_ficha_opme:'Aguard. Ficha OPME',urgencia:'URGÊNCIA'};
-    const txt=[`GF Medical — Ficha Cirúrgica`,proc.hospital||'',proc.paciente?`Paciente: ${proc.paciente}`:'',proc.medico?`Médico: ${proc.medico}`:'',proc.data?`Data: ${fmt(proc.data)}${proc.inicio?' às '+proc.inicio:''}`:'',`Status: ${sMap[proc.status]||proc.status}`,proc.vendedor?`Vendedor: ${proc.vendedor}`:''].filter(Boolean).join('\n');
+    const txt=[`Monitor Cirúrgico — Ficha Cirúrgica`,proc.hospital||'',proc.paciente?`Paciente: ${proc.paciente}`:'',proc.medico?`Médico: ${proc.medico}`:'',proc.data?`Data: ${fmt(proc.data)}${proc.inicio?' às '+proc.inicio:''}`:'',`Status: ${sMap[proc.status]||proc.status}`,proc.vendedor?`Vendedor: ${proc.vendedor}`:''].filter(Boolean).join('\n');
     const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&format=svg&data=${encodeURIComponent(txt)}`;
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
@@ -21019,7 +21019,7 @@ window.enviarRelatorioEmail=function(){
     if(urg.length){c+=`URGÊNCIAS\n${urg.map(p=>`• ${p.paciente||p.hospital||'—'} (${p.medico||'—'})`).join('\n')}\n\n`;}
     if(hj.length){c+=`CIRURGIAS HOJE\n${hj.map(p=>`• ${p.paciente||p.hospital||'—'} — ${p.inicio||'—'} — ${p.medico||'—'}`).join('\n')}\n\n`;}
     if(reag.length){c+=`REAGENDADOS\n${reag.map(p=>`• ${p.paciente||p.hospital||'—'} — ${fmt(p.data)} — ${p.vendedor||'—'}`).join('\n')}\n\n`;}
-    c+=`Monitor Cirúrgico GF Medical`;
+    c+=`Monitor Cirúrgico`;
     window.open(`mailto:?subject=${encodeURIComponent('Monitor Cirúrgico — Relatório '+new Date().toLocaleDateString('pt-BR'))}&body=${encodeURIComponent(c)}`);
 };
 
